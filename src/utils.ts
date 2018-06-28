@@ -55,11 +55,21 @@ export function getDiagnosticSeverityFromInkErrorType(type: InkErrorType): Diagn
   }
 }
 
+export function determinePlatform(): Platform {
+  if (process.platform === "win32") {
+      return Platform.Windows
+  } else if (process.platform === "darwin") {
+      return Platform.MacOs
+  }
+
+  return Platform.Other
+}
+
 /**
  * Returns true if the current setup requires Inklecate to be run through mono.
  */
 export function isRunThroughMono() {
-  const platform = Platform.determine();
+  const platform = determinePlatform();
   const isMacInklecateValid = (platform === Platform.MacOs && isDefaultMacOsInklecateInstalled());
 
   return !(isMacInklecateValid || platform === Platform.Windows);

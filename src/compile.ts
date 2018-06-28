@@ -18,7 +18,13 @@ import {
   PartialInkConfigurationSettings,
   Platform
 } from "./types";
-import { defaultInklecatePath, getPathFromUri, isRunThroughMono, mergeSettings } from "./utils";
+import {
+  defaultInklecatePath,
+  determinePlatform,
+  getPathFromUri,
+  isRunThroughMono,
+  mergeSettings
+} from "./utils";
 
 /* Constants */
 /******************************************************************************/
@@ -29,7 +35,7 @@ const INK_EXTENSIONS = ["ink", "ink2"];
  * by the client.
  */
 export const DEFAULT_SETTINGS: InkConfigurationSettings = {
-  inklecateExecutablePath: defaultInklecatePath(Platform.determine()),
+  inklecateExecutablePath: defaultInklecatePath(determinePlatform()),
   mainStoryPath: "main.ink",
   runThroughMono: isRunThroughMono()
 };

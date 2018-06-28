@@ -67,20 +67,3 @@ export namespace InkErrorType {
         }
     }
 }
-
-/** Extends InkErrorType enum with convenience functions. */
-// tslint:disable-next-line:no-namespace
-export namespace Platform {
-    /**
-     * Returns the platform on which the process is executing.
-     */
-    export function determine(): Platform {
-        if (process.platform === "win32") {
-            return Platform.Windows
-        } else if (process.platform === "darwin") {
-            return Platform.MacOs
-        }
-
-        return Platform.Other
-    }
-}
