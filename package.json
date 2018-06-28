@@ -1,0 +1,57 @@
+{
+  "name": "ink-language-server",
+  "version": "0.1.0",
+  "description": "A Language Server for Inkle's Ink",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "install": "node lib/scripts/install.js",
+    "postinstall": "node ./node_modules/vscode/bin/install",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ephread/ink-language-server.git"
+  },
+  "author": "Frédéric Maquin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ephread/ink-language-server/issues"
+  },
+  "homepage": "https://github.com/ephread/ink-language-server#readme",
+  "dependencies": {
+    "cli-progress": "^2.0.0",
+    "extract-zip": "^1.6.7",
+    "fs-extra": "^6.0.1",
+    "gauge": "^2.7.4",
+    "pjson": "^1.0.9",
+    "request": "^2.87.0",
+    "uuid": "^3.2.1",
+    "vscode-languageserver": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/cli-progress": "^1.8.0",
+    "@types/extract-zip": "^1.6.2",
+    "@types/fs-extra": "^5.0.3",
+    "@types/jest": "^23.1.2",
+    "@types/node": "^10.3.4",
+    "@types/request": "^2.47.1",
+    "@types/uuid": "^3.4.3",
+    "jest": "^23.2.0",
+    "prettier": "^1.13.5",
+    "ts-jest": "^22.4.6",
+    "ts-lint": "^4.5.1",
+    "tslint": "^5.10.0",
+    "tslint-config-prettier": "^1.13.0",
+    "typescript": "^2.9.2",
+    "vscode": "^1.1.18",
+    "vscode-languageclient": "^4.2.1"
+  },
+  "engines": {
+    "vscode": "^1.24.1"
+  },
+  "activationEvents": [
+    "onLanguage:ink"
+  ]
+}

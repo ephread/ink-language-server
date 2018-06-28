@@ -1,0 +1,28 @@
+# Editor settings
+.vscode
+
+# Tests
+tests
+coverage
+jest.config.js
+
+# Build tools
+.travis.yml
+.codecov.yml
+
+# Linters
+.prettierignore
+.prettierrc
+tslint.json
+
+# Type Script Code
+tsconfig.json
+src/
+*.js.map
+
+# Inklecate
+vendor/inklecate
+
+# Git
+.gitignore
+.gitattributes

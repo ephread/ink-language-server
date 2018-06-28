@@ -72,3 +72,8 @@ typings/
 # Serverless directories
 .serverless
 
+# Inklecate binary
+vendor/inklecate
+
+# Compiled Typescript
+lib/
