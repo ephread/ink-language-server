@@ -1,11 +1,14 @@
 # ![Ink Language Server](https://i.imgur.com/cAAZgwJ.png)
 
 [![Build Status](https://travis-ci.org/ephread/ink-language-server.svg?branch=master)](https://travis-ci.org/ephread/ink-language-server)
+[![codebeat badge](https://codebeat.co/badges/e7ea4d8e-732c-4320-8815-1f150f44507e)](https://codebeat.co/projects/github-com-ephread-ink-language-server-master)
 [![codecov](https://codecov.io/gh/ephread/ink-language-server/branch/master/graph/badge.svg)](https://codecov.io/gh/ephread/ink-language-server)
+[![npm version](https://img.shields.io/npm/v/ink-language-server.svg)](https://www.npmjs.com/package/ink-language-server)
+[![Install Size](https://packagephobia.now.sh/badge?p=rollup)](https://packagephobia.now.sh/result?p=ink-language-server)
+[![Install Size](https://img.shields.io/npm/l/ink-language-server.svg)](https://github.com/ephread/ink-language-server/blob/master/LICENSE.md)
+[![Dependencies](https://david-dm.org/ephread/ink-language-server/status.svg)](https://david-dm.org/ephread/ink-language-server)
 
-
-
-A language server for inkle's Ink, that adheres to the [Language Server Protocol (LSP)].
+A language server for inkle's Ink, that adheres to the [Language Server Protocol (LSP)] (very early stages).
 
 [Language Server Protocol (LSP)]: https://microsoft.github.io/language-server-protocol/specification
 
@@ -23,6 +26,8 @@ A language server for inkle's Ink, that adheres to the [Language Server Protocol
 ## Getting started
 
 The server is written in Type Script. It is mostly intended to be run via [`ink-vscode`], but could be run with any client supporting LSP. You typically don't need to start the server yourself.
+
+[`ink-vscode`]: https://github.com/sequitur/ink-vscode
 
 ### Installation
 Install the package with [npm] or [yarn].

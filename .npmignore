@@ -26,3 +26,6 @@ vendor/inklecate
 # Git
 .gitignore
 .gitattributes
+
+# npm
+*.tgz
