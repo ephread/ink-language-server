@@ -1,4 +1,4 @@
-# ![Ink Language Server](https://i.imgur.com/cAAZgwJ.png)
+# ![Ink Language Server](https://i.imgur.com/pQwWZ9X.png)
 
 [![Build Status](https://travis-ci.org/ephread/ink-language-server.svg?branch=master)](https://travis-ci.org/ephread/ink-language-server)
 [![codebeat badge](https://codebeat.co/badges/e7ea4d8e-732c-4320-8815-1f150f44507e)](https://codebeat.co/projects/github-com-ephread-ink-language-server-master)
@@ -8,7 +8,7 @@
 [![Install Size](https://img.shields.io/npm/l/ink-language-server.svg)](https://github.com/ephread/ink-language-server/blob/master/LICENSE.md)
 [![Dependencies](https://david-dm.org/ephread/ink-language-server/status.svg)](https://david-dm.org/ephread/ink-language-server)
 
-A language server for inkle's Ink, that adheres to the [Language Server Protocol (LSP)] (very early stages).
+A language server for inkle's Ink, that adheres to the [Language Server Protocol (LSP)]. The project is in early stages.
 
 [Language Server Protocol (LSP)]: https://microsoft.github.io/language-server-protocol/specification
 
@@ -67,7 +67,7 @@ The server is bundled with the latest version of Inklecate, built to run nativel
 If the server detects that it's being intalled on macOS, it will try to download an additional native macOS binary. This optional download may fail for a wide range of reasons. If doesn't complete, you will be left with three options:
 
 1. Download the binary archive yourself, extract it somewhere on your system and configure your language client to send its absolute path as the value of `ink.inklecateExecutablePath`.
-2. Download the binary archive yourself and extract its content to `<language-server-path>/vendor/.
+2. Download the binary archive yourself and extract its content to `<language-server-path>/vendor/`.
 3. Install a [Mono runtime], the server will then use the Windows binaries and run them through mono.
 
 ### Linux and other platforms
