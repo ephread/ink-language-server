@@ -8,11 +8,13 @@ cache:
     - $HOME/.npm
 
 before_install:
-  - npm install -g npm
+  - npm install -g npm typescript
 
 install: 
-  - npm install
+  - npm install --ignore-scripts
   - npm run vscode:prepublish
+  - npm run install
+  - npm run postinstall
 
 script:
   - npm test
