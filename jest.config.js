@@ -11,5 +11,6 @@ module.exports = {
       "json",
       "node"
   ],
-  "collectCoverage": true
+  "collectCoverage": true,
+  "collectCoverageFrom": ["src/**/*.{ts,js}"]
 }

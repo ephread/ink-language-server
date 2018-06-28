@@ -1,5 +1,10 @@
 # ![Ink Language Server](https://i.imgur.com/cAAZgwJ.png)
 
+[![Build Status](https://travis-ci.org/ephread/ink-language-server.svg?branch=master)](https://travis-ci.org/ephread/ink-language-server)
+[![codecov](https://codecov.io/gh/ephread/ink-language-server/branch/master/graph/badge.svg)](https://codecov.io/gh/ephread/ink-language-server)
+
+
+
 A language server for inkle's Ink, that adheres to the [Language Server Protocol (LSP)].
 
 [Language Server Protocol (LSP)]: https://microsoft.github.io/language-server-protocol/specification
