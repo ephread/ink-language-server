@@ -1,7 +1,15 @@
 {
   "name": "ink-language-server",
   "version": "0.1.0",
-  "description": "A Language Server for Inkle's Ink",
+  "description": "Implementation of the Language Server Protocol for inkle's Ink.",
+  "keywords": [
+    "LSP",
+    "ink",
+    "inkle",
+    "inky",
+    "compiler",
+    "language"
+  ],
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
@@ -14,7 +22,7 @@
     "type": "git",
     "url": "git+https://github.com/ephread/ink-language-server.git"
   },
-  "author": "Frédéric Maquin",
+  "author": "Frédéric Maquin <fred@ephread.com> (https://ephread.com/)",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ephread/ink-language-server/issues"
