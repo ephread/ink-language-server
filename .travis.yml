@@ -13,7 +13,6 @@ before_install:
 install: 
   - npm install --ignore-scripts
   - npm run vscode:prepublish
-  - npm run install
   - npm run postinstall
 
 script:
