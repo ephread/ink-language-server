@@ -1,4 +1,4 @@
-import { WorkspaceFolder } from "vscode-languageserver/lib/main";
+import { IConnection, WorkspaceFolder } from "vscode-languageserver";
 
 // Copyright (c) Frédéric Maquin <fred@ephread.com>
 // Licensed under the MIT License.
@@ -45,6 +45,27 @@ export interface InkError {
 
 export enum Platform {
     MacOs, Windows, Other
+}
+
+export interface IConnectionLogger {
+    log(message: string): void;
+    showErrorMessage(message: string): void;
+}
+
+export class InkConnectionLogger implements IConnectionLogger {
+    private connection: IConnection;
+
+    constructor(connection: IConnection) {
+        this.connection = connection;
+    }
+
+    public log(message: string) {
+        this.connection.console.log(message);
+    }
+
+    public showErrorMessage(message: string) {
+        this.connection.window.showErrorMessage(message);
+    }
 }
 
 /** Extends InkErrorType enum with convenience functions. */

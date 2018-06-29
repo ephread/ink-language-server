@@ -5,6 +5,8 @@
 tests
 coverage
 jest.config.js
+__mocks__
+__mock__
 
 # Build tools
 .travis.yml

@@ -11,6 +11,7 @@ import * as Uuid from "uuid/v4";
 
 import { IConnection, TextDocument, WorkspaceFolder } from "vscode-languageserver";
 import {
+  IConnectionLogger,
   InkConfigurationSettings,
   InkError,
   InkErrorType,
@@ -54,10 +55,10 @@ export const DEFAULT_SETTINGS: InkConfigurationSettings = {
  */
 export function prepareTempDirectoryForCompilation(
   workspaceFolder: WorkspaceFolder,
-  connection: IConnection,
+  logger: IConnectionLogger,
   callback: (tempDirectory: string | undefined) => void
 ) {
-  connection.console.log(`Creating temporary compile directory for: ${workspaceFolder.name}`);
+  logger.log(`Creating temporary compile directory for: ${workspaceFolder.name}`);
 
   const tempDirectory = Path.join(Os.tmpdir(), Uuid());
   const workspacePath = getPathFromUri(workspaceFolder.uri);
@@ -65,22 +66,27 @@ export function prepareTempDirectoryForCompilation(
   // Make the temporary directory and copy the ink files in it.
   Fs.mkdir(tempDirectory, mkDirError => {
     if (mkDirError) {
-      connection.console.log(mkDirError.message);
+      logger.log(mkDirError.message);
       callback(undefined);
     } else {
       Fs.copy(
         workspacePath,
         tempDirectory,
         {
-          filter(src: string, dest: string): boolean {
-            const isDir = Fs.lstatSync(src).isDirectory();
-            const isInk = INK_EXTENSIONS.indexOf(src.split(".").pop() || "") > -1;
-            return isDir || isInk;
+          filter: (src: string, dest: string) => {
+            try {
+              const isDir = Fs.lstatSync(src).isDirectory();
+              const isInk = INK_EXTENSIONS.indexOf(src.split(".").pop() || "") > -1;
+              return isDir || isInk;
+            } catch (error) {
+              logger.log(error.message);
+              return false;
+            }
           }
         },
         copyError => {
           if (copyError) {
-            connection.console.log(copyError.message);
+            logger.log(copyError.message);
             callback(undefined);
           } else {
             callback(tempDirectory);
@@ -130,12 +136,12 @@ export function updateFile(
 export function compileProject(
   settings: PartialInkConfigurationSettings,
   inkWorkspace: InkWorkspace,
-  connection: IConnection,
+  logger: IConnectionLogger,
   completion: (errors: InkError[]) => void
 ) {
   const tempDir = inkWorkspace.temporaryCompilationDirectory;
   if (!tempDir) {
-    connection.console.log(
+    logger.log(
       `Temporary directory for ${inkWorkspace.folder.name} is \`undefined\`, ignoring…`
     );
     return;
@@ -147,27 +153,27 @@ export function compileProject(
 
   // Though checking these beforehand is subjected to race conditions, it's useful as it'll
   // give the user a hint about what may be going wrong.
-  Fs.access(mergedSettings.inklecateExecutablePath, Fs.constants.X_OK, inklecateError => {
-    if (inklecateError) {
+  Fs.access(mergedSettings.inklecateExecutablePath, Fs.constants.X_OK)
+    .catch(error => {
       const inklecateErrorMessage = `'inklecatePath' (${
         mergedSettings.inklecateExecutablePath
       }) is not executable.`;
-      connection.console.log(inklecateError.message);
-      connection.window.showErrorMessage(inklecateErrorMessage);
-    } else {
-      Fs.access(mainStoryTempPath, Fs.constants.R_OK, storyError => {
-        if (storyError) {
-          const storyErrorMessage = `'mainStoryPath' (${
-            mergedSettings.mainStoryPath
-          }) is not readable.`;
-          connection.console.log(storyError.message);
-          connection.window.showErrorMessage(storyErrorMessage);
-        } else {
-          spawnInklecate(mergedSettings, mainStoryTempPath, inkWorkspace, connection, completion);
-        }
-      });
-    }
-  });
+      logger.log(error.message);
+      logger.showErrorMessage(inklecateErrorMessage);
+    })
+    .then(() => {
+      return Fs.access(mainStoryTempPath, Fs.constants.R_OK);
+    })
+    .catch(error => {
+      const storyErrorMessage = `'mainStoryPath' (${
+        mergedSettings.mainStoryPath
+      }) is not readable.`;
+      logger.log(error.message);
+      logger.showErrorMessage(storyErrorMessage);
+    })
+    .then(() => {
+      spawnInklecate(mergedSettings, mainStoryTempPath, inkWorkspace, logger, completion);
+    })
 }
 
 /**
@@ -184,7 +190,7 @@ function spawnInklecate(
   settings: InkConfigurationSettings,
   mainStoryTempPath: string,
   inkWorkspace: InkWorkspace,
-  connection: IConnection,
+  logger: IConnectionLogger,
   completion: (errors: InkError[]) => void
 ) {
   // We'll let the process crash if inklecate could not be spawned.
@@ -208,8 +214,8 @@ function spawnInklecate(
 
       if (text.length > 0) {
         const inklecateMessage = "Inklecate returned an error, see the log for more details.";
-        connection.console.log(text);
-        connection.window.showErrorMessage(inklecateMessage);
+        logger.log(text);
+        logger.showErrorMessage(inklecateMessage);
       }
     }
   });

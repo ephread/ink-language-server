@@ -22,6 +22,7 @@ import {
 import {
   Capabilities,
   InkConfigurationSettings,
+  InkConnectionLogger,
   InkError,
   InkWorkspace,
   PartialInkConfigurationSettings
@@ -44,6 +45,7 @@ const capabilities: Capabilities = {
 
 /** Connection with the client. */
 const connection = createConnection(ProposedFeatures.all);
+const logger = new InkConnectionLogger(connection);
 
 /** Documents managed by the clients. */
 const documents: TextDocuments = new TextDocuments();
@@ -164,7 +166,7 @@ async function initializeInkWorkspaces() {
         workspaceDirectories.set(workspaceFolder.uri, workspace);
       }
 
-      prepareTempDirectoryForCompilation(workspaceFolder, connection, tempDir => {
+      prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDir => {
         if (tempDir) {
           (workspace as InkWorkspace).temporaryCompilationDirectory = tempDir;
         } else {
@@ -194,7 +196,7 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
       connection.console.log(error.message);
       reportServerError();
     } else {
-      compileProject(settings, workspace, connection, pushDiagnostics);
+      compileProject(settings, workspace, logger, pushDiagnostics);
     }
   });
 }
