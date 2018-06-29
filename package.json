@@ -14,8 +14,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "install": "node lib/scripts/install.js",
-    "postinstall": "node ./node_modules/vscode/bin/install",
+    "postinstall": "node lib/scripts/install.js && node ./node_modules/vscode/bin/install",
     "test": "jest"
   },
   "repository": {
@@ -33,7 +32,6 @@
     "extract-zip": "^1.6.7",
     "fs-extra": "^6.0.1",
     "gauge": "^2.7.4",
-    "pjson": "^1.0.9",
     "request": "^2.87.0",
     "uuid": "^3.2.1",
     "vscode-languageserver": "^4.2.1"

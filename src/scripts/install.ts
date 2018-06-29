@@ -6,8 +6,9 @@ import * as Progress from "cli-progress";
 import * as Extract from "extract-zip";
 import * as Fs from "fs";
 import * as Path from "path";
-import * as Pjson from "pjson";
 import * as Request from "request";
+
+const INK_VERSION = '0.8.1';
 
 /** Global progress used during archive download. */
 let progress: Progress.Bar;
@@ -42,10 +43,10 @@ function log(message: any) {
 function optionalMacOsBundleName(): string | undefined {
   const arch = process.arch;
   if (arch === "ia32" || arch === "x86") {
-    return "inklecate-macos-ia32.zip";
+    return `inklecate_${INK_VERSION}-macos_i386.zip`;
   }
   if (arch === "x64") {
-    return "inklecate-macos-x64.zip";
+    return `inklecate_${INK_VERSION}-macos_x64.zip`;
   }
 }
 
@@ -132,11 +133,10 @@ function checkPlatformAndDownloadBinaryDependency() {
   if (isRunningOnMac()) {
     // Running on a mac.
     const bundleName = optionalMacOsBundleName();
-    const version = Pjson.version;
-    const urlpart = `https://github.com/ephread/ink-language-server/releases/download/${version}`;
+    const urlpart = `https://dl.bintray.com/ephread/ink-language-server/`;
   
     if (bundleName) {
-      const url = `${urlpart}/${bundleName}`;
+      const url = `${urlpart}${bundleName}`;
       const vendorDir = Path.join(__dirname, "../../vendor/");
       const filePath = Path.join(vendorDir, bundleName);
   
