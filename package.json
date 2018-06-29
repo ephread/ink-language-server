@@ -1,6 +1,6 @@
 {
   "name": "ink-language-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Implementation of the Language Server Protocol for inkle's Ink.",
   "keywords": [
     "LSP",
