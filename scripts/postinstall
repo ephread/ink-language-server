@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+node lib/scripts/install.js
+
+# If the directory is not found, that probably means we are installed as a dependency.
+# If we are installed as a dependency it may (or may not) be a good idea to check
+# for vscode install script in the parent directory.
+#
+# Worst case scenario, the install script in run twice.
+VSCODE_INSTALL="./node_modules/vscode/bin/install"
+VSCODE_PARENT_INSTALL="../vscode/bin/install"
+if [ -f $VSCODE_INSTALL ]; then
+  node $VSCODE_INSTALL
+elif [ -f $VSCODE_PARENT_INSTALL ]; then
+  node $VSCODE_PARENT_INSTALL
+fi

@@ -140,30 +140,36 @@ function checkPlatformAndDownloadBinaryDependency() {
       const vendorDir = Path.join(__dirname, "../../vendor/");
       const filePath = Path.join(vendorDir, bundleName);
   
-      log(`Running on macOS, fetching inkeclate from: ${url}`);
-  
-      downloadDependency(url, filePath, error => {
-        if (error) {
-          if (progress) {
-            progress.stop();
-          }
-          log(error);
-          log(messages.installError);
+      Fs.stat('./vendor/inklecate', (statError, stat) => {
+        if (stat) {
+          log(`Running on macOS, inklecate has already been downloaded.`);
         } else {
-          Extract(filePath, { dir: vendorDir }, extractError => {
-            if (extractError) {
-              log(extractError.message);
+          log(`Running on macOS, fetching inkeclate from: ${url}`);
+  
+          downloadDependency(url, filePath, error => {
+            if (error) {
+              if (progress) {
+                progress.stop();
+              }
+              log(error);
+              log(messages.installError);
             } else {
-              Fs.unlink(filePath, unLinkError => {
-                if (unLinkError) {
-                  log(unLinkError);
+              Extract(filePath, { dir: vendorDir }, extractError => {
+                if (extractError) {
+                  log(extractError.message);
+                } else {
+                  Fs.unlink(filePath, unLinkError => {
+                    if (unLinkError) {
+                      log(unLinkError);
+                    }
+                  });
+                  log("Inklecate successfully installed!");
                 }
               });
-              log("Inklecate successfully installed!");
             }
           });
         }
-      });
+      })
     }
   } else if (!isRunningOnWindows()) {
     log(messages.unsupportedPlatform);
