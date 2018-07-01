@@ -14,7 +14,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "postinstall": "./scripts/postinstall",
+    "postinstall": "node ./lib/scripts/postinstall",
     "test": "jest"
   },
   "repository": {
