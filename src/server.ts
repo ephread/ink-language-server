@@ -194,7 +194,7 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
 
   updateFile(document, workspace, error => {
     if (error) {
-      connection.console.log(error.message);
+      connection.console.log(`Could not update '${document.uri}', ${error.message}`);
       reportServerError();
     } else {
       compileProject(settings, workspace, logger, pushDiagnostics);
@@ -204,8 +204,8 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
 
 function reportServerError() {
   connection.window.showErrorMessage(
-    "An unrecoverable error occured with Ink Language Server." +
-      "Please see the logs for more information"
+    "An unrecoverable error occured with Ink Language Server. " +
+    "Please see the logs for more information."
   );
 }
 

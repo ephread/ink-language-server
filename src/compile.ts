@@ -20,12 +20,7 @@ import {
   PartialInkConfigurationSettings,
   Platform
 } from "./types";
-import {
-  defaultInklecatePath,
-  determinePlatform,
-  isRunThroughMono,
-  mergeSettings
-} from "./utils";
+import { defaultInklecatePath, determinePlatform, isRunThroughMono, mergeSettings } from "./utils";
 
 /* Constants */
 /******************************************************************************/
@@ -66,7 +61,7 @@ export function prepareTempDirectoryForCompilation(
   // Make the temporary directory and copy the ink files in it.
   Fs.mkdir(tempDirectory, mkDirError => {
     if (mkDirError) {
-      logger.log(mkDirError.message);
+      logger.log(`Could not create temporary compile directory: ${mkDirError.message}`);
       callback(undefined);
     } else {
       Fs.copy(
@@ -79,14 +74,16 @@ export function prepareTempDirectoryForCompilation(
               const isInk = INK_EXTENSIONS.indexOf(src.split(".").pop() || "") > -1;
               return isDir || isInk;
             } catch (error) {
-              logger.log(error.message);
+              logger.log(
+                `WARNING: File '${src}' doesn't exist and will be ignored. - ` + error.message
+              );
               return false;
             }
           }
         },
         copyError => {
           if (copyError) {
-            logger.log(copyError.message);
+            logger.log("Could not copy files : " + copyError.message);
             callback(undefined);
           } else {
             callback(tempDirectory);
@@ -156,7 +153,7 @@ export function compileProject(
       const inklecateErrorMessage = `'inklecatePath' (${
         mergedSettings.inklecateExecutablePath
       }) is not executable.`;
-      logger.log(error.message);
+      logger.log(`${inklecateErrorMessage} - ${error.message}`);
       logger.showErrorMessage(inklecateErrorMessage);
     })
     .then(() => {
@@ -166,7 +163,7 @@ export function compileProject(
       const storyErrorMessage = `'mainStoryPath' (${
         mergedSettings.mainStoryPath
       }) is not readable.`;
-      logger.log(error.message);
+      logger.log(`${storyErrorMessage} - ${error.message}`);
       logger.showErrorMessage(storyErrorMessage);
     })
     .then(() => {
@@ -222,9 +219,9 @@ function spawnInklecate(
         possibleReasons.push(".NET is likely missing");
     }
 
-    logger.log(error.message);
+    logger.log(`${inklecateMessage} ${possibleReasons.join(" or ")}. - ${error.message}`);
     logger.showErrorMessage(
-      inklecateMessage + possibleReasons.join(" or ") + ". Please see the log for more details."
+      `${inklecateMessage} ${possibleReasons.join(" or ")}. Please see the log for more details.`
     );
   });
 
@@ -236,7 +233,7 @@ function spawnInklecate(
 
       if (text.length > 0) {
         const inklecateMessage = "Inklecate returned an error, see the log for more details.";
-        logger.log(text);
+        logger.log(`${inklecateMessage}: ${text}`);
         logger.showErrorMessage(inklecateMessage);
       }
     }

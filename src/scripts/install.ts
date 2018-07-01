@@ -18,7 +18,7 @@ const messages = {
   unsupportedPlatform:
     "You are running a platform for which there are no prebuilt binaries. " +
     "The server comes bundled with an inklecate requiring the Mono runtime to run. " +
-    "For more informations, please read " +
+    "For more information, please read " +
     "https://github.com/ephread/ink-language-server/blob/master/README.md#inklecate",
 
   installError:
