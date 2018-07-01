@@ -141,9 +141,7 @@ export function compileProject(
 ) {
   const tempDir = inkWorkspace.temporaryCompilationDirectory;
   if (!tempDir) {
-    logger.log(
-      `Temporary directory for ${inkWorkspace.folder.name} is \`undefined\`, ignoring…`
-    );
+    logger.log(`Temporary directory for ${inkWorkspace.folder.name} is \`undefined\`, ignoring…`);
     return;
   }
 
@@ -173,7 +171,7 @@ export function compileProject(
     })
     .then(() => {
       spawnInklecate(mergedSettings, mainStoryTempPath, inkWorkspace, logger, completion);
-    })
+    });
 }
 
 /**
@@ -193,7 +191,6 @@ function spawnInklecate(
   logger: IConnectionLogger,
   completion: (errors: InkError[]) => void
 ) {
-  // We'll let the process crash if inklecate could not be spawned.
   const command = settings.runThroughMono ? "mono" : settings.inklecateExecutablePath;
   const args = settings.runThroughMono
     ? [settings.inklecateExecutablePath, mainStoryTempPath]
@@ -204,6 +201,31 @@ function spawnInklecate(
     env: {
       MONO_BUNDLED_OPTIONS: "--debug"
     }
+  });
+
+  inklecateProcess.on("error", error => {
+    const platform = determinePlatform();
+    const inklecateMessage = "The inklecate process could not be created or crashed: ";
+    const possibleReasons: string[] = [];
+
+    if (settings.runThroughMono && platform !== Platform.Windows) {
+      possibleReasons.push("mono is not installed in the $PATH");
+    }
+
+    switch (platform) {
+      case Platform.MacOs:
+        possibleReasons.push("the prebuilt binary was not installed");
+      case Platform.Other:
+        possibleReasons.push("the value of `ink.inklecateExecutablePath` is incorrect");
+        break;
+      case Platform.Windows:
+        possibleReasons.push(".NET is likely missing");
+    }
+
+    logger.log(error.message);
+    logger.showErrorMessage(
+      inklecateMessage + possibleReasons.join(" or ") + ". Please see the log for more details."
+    );
   });
 
   inklecateProcess.stderr.setEncoding("utf8");

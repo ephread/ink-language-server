@@ -72,7 +72,7 @@ export function isRunThroughMono() {
   const platform = determinePlatform();
   const isMacInklecateValid = (platform === Platform.MacOs && isDefaultMacOsInklecateInstalled());
 
-  return !(isMacInklecateValid || platform === Platform.Windows);
+  return !isMacInklecateValid && platform !== Platform.Windows;
 }
 
 /**
