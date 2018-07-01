@@ -12,6 +12,8 @@ import {
   TextDocuments
 } from "vscode-languageserver";
 
+import Uri from "vscode-uri";
+
 import {
   compileProject,
   DEFAULT_SETTINGS,
@@ -30,7 +32,6 @@ import {
 
 import {
   getDiagnosticSeverityFromInkErrorType,
-  getPathFromUri,
   isFilePathChildOfDirPath
 } from "./utils";
 
@@ -77,7 +78,7 @@ const documentSettings: Map<string, Thenable<PartialInkConfigurationSettings>> =
  * @param document a text document, belonging to the returned workspace.
  */
 function getInkWorkspaceOfDocument(document: TextDocument): InkWorkspace | undefined {
-  const documentPath = getPathFromUri(document.uri);
+  const documentPath = Uri.parse(document.uri).fsPath;
 
   for (const workspaceKey of workspaceDirectories.keys()) {
     const workspace = workspaceDirectories.get(workspaceKey);
@@ -85,7 +86,7 @@ function getInkWorkspaceOfDocument(document: TextDocument): InkWorkspace | undef
       continue;
     }
 
-    const workspacePath = getPathFromUri(workspace.folder.uri);
+    const workspacePath = Uri.parse(workspace.folder.uri).fsPath;
     if (isFilePathChildOfDirPath(documentPath, workspacePath)) {
       return workspace;
     }

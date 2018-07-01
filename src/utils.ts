@@ -16,15 +16,6 @@ import {
 } from "./types";
 
 /**
- * Returns a path (same string with URIscheme removed) from the given uri.
- * @param uri uri from which strip the scheme.
- */
-export function getPathFromUri(uri: string): string {
-  const regex = RegExp("^file://");
-  return uri.replace(regex, "");
-}
-
-/**
  * Returns `true` if `filePath` point to a file that is a child of
  * the directory `dirPath` points to.
  *

@@ -13,28 +13,10 @@ import {
 import {
   determinePlatform,
   getDiagnosticSeverityFromInkErrorType,
-  getPathFromUri,
   isFilePathChildOfDirPath,
   isRunThroughMono,
   mergeSettings
 } from "../src/utils";
-
-describe("getPathFromUri", () => {
-  it("returns the basename of the URI", () => {
-    expect(getPathFromUri("file:///path/to/fake/file")).toEqual("/path/to/fake/file");
-    expect(getPathFromUri("file://path/to/fake/file")).toEqual("path/to/fake/file");
-    expect(getPathFromUri("file://C:/path/to/fake/file")).toEqual("C:/path/to/fake/file");
-  });
-
-  it("returns the same path when given a path without scheme", () => {
-    expect(getPathFromUri("path/to/fake/file")).toEqual("path/to/fake/file");
-    expect(getPathFromUri("/path/to/fake/file")).toEqual("/path/to/fake/file");
-    expect(getPathFromUri("./path/to/fake/file")).toEqual("./path/to/fake/file");
-    expect(getPathFromUri("path/to/../fake/file")).toEqual("path/to/../fake/file");
-    expect(getPathFromUri("C:/path/to/fake/file")).toEqual("C:/path/to/fake/file");
-    expect(getPathFromUri("C:/path/../to/fake/file")).toEqual("C:/path/../to/fake/file");
-  });
-});
 
 describe("isFilePathChildOfDirPath", () => {
   it("returns true when the given file is a child of the given directory", () => {

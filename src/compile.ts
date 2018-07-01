@@ -6,8 +6,9 @@ import * as ChildProcess from "child_process";
 import * as Fs from "fs-extra";
 import * as Os from "os";
 import * as Path from "path";
-
 import * as Uuid from "uuid/v4";
+
+import Uri from "vscode-uri";
 
 import { IConnection, TextDocument, WorkspaceFolder } from "vscode-languageserver";
 import {
@@ -22,7 +23,6 @@ import {
 import {
   defaultInklecatePath,
   determinePlatform,
-  getPathFromUri,
   isRunThroughMono,
   mergeSettings
 } from "./utils";
@@ -61,7 +61,7 @@ export function prepareTempDirectoryForCompilation(
   logger.log(`Creating temporary compile directory for: ${workspaceFolder.name}`);
 
   const tempDirectory = Path.join(Os.tmpdir(), Uuid());
-  const workspacePath = getPathFromUri(workspaceFolder.uri);
+  const workspacePath = Uri.parse(workspaceFolder.uri).fsPath;
 
   // Make the temporary directory and copy the ink files in it.
   Fs.mkdir(tempDirectory, mkDirError => {
@@ -114,9 +114,9 @@ export function updateFile(
     return;
   }
 
-  const workspacePath = getPathFromUri(workspace.folder.uri);
+  const workspacePath = Uri.parse(workspace.folder.uri).fsPath;
   const documentContent = document.getText();
-  const path = getPathFromUri(document.uri);
+  const path = Uri.parse(document.uri).fsPath;
 
   const regex = new RegExp(`^${workspacePath}`);
   const relativePath = path.replace(regex, "");
@@ -283,7 +283,7 @@ function parseInklecateOutput(
       const errorType = InkErrorType.parse(errorMatches[1]);
       const path =
         "file://" +
-        Path.join(getPathFromUri(workspace.folder.uri), mainStoryPathPrefix, errorMatches[3]);
+        Path.join(Uri.parse(workspace.folder.uri).fsPath, mainStoryPathPrefix, errorMatches[3]);
 
       if (errorType) {
         inkErrors.push({
