@@ -38,6 +38,7 @@ install.on('exit', (code) => {
           
           secondStat.on('exit', exitProcess);
         } else {
+          // tslint:disable-next-line no-console
           console.log("Could no locate vscode type installer, aborting…")
           exitProcess(1);
         }
