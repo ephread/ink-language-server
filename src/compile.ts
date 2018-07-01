@@ -20,7 +20,13 @@ import {
   PartialInkConfigurationSettings,
   Platform
 } from "./types";
-import { defaultInklecatePath, determinePlatform, isRunThroughMono, mergeSettings } from "./utils";
+import {
+  defaultInklecatePath,
+  determinePlatform,
+  escapeForRegExp,
+  isRunThroughMono,
+  mergeSettings
+} from "./utils";
 
 /* Constants */
 /******************************************************************************/
@@ -115,7 +121,7 @@ export function updateFile(
   const documentContent = document.getText();
   const path = Uri.parse(document.uri).fsPath;
 
-  const regex = new RegExp(`^${workspacePath}`);
+  const regex = new RegExp(`^${escapeForRegExp(workspacePath)}`);
   const relativePath = path.replace(regex, "");
   const fullPath = Path.join(workspace.temporaryCompilationDirectory, relativePath);
 
@@ -279,7 +285,6 @@ function parseInklecateOutput(
     if (errorMatches) {
       const errorType = InkErrorType.parse(errorMatches[1]);
       const path =
-        "file://" +
         Path.join(Uri.parse(workspace.folder.uri).fsPath, mainStoryPathPrefix, errorMatches[3]);
 
       if (errorType) {

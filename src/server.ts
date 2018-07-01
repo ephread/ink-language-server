@@ -129,7 +129,7 @@ function pushDiagnostics(errors: InkError[]) {
   for (const textDocument of documents.all()) {
     const diagnostics: Diagnostic[] = [];
     for (const error of errors) {
-      if (textDocument.uri === error.filePath) {
+      if (Uri.parse(textDocument.uri).fsPath === error.filePath) {
         const diagnostic: Diagnostic = {
           severity: getDiagnosticSeverityFromInkErrorType(error.type),
           range: {

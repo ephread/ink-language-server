@@ -114,6 +114,15 @@ export function mergeSettings(
 }
 
 /**
+ * Returns given string with escaped characters, for use as a regular expression pattern.
+ * 
+ * @param source the string to escape
+ */
+export function escapeForRegExp(source: string): string {
+  return source.replace(/[\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+/**
  * Returns the default path to inklecate, when running the server on macOS.
  */
 function defaultMacInklecatePath(): string {
