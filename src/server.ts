@@ -192,7 +192,7 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
 
   const settings = await fetchDocumentConfigurationSettings(document);
 
-  updateFile(document, workspace, error => {
+  updateFile(document, workspace, logger, error => {
     if (error) {
       connection.console.log(`Could not update '${document.uri}', ${error.message}`);
       reportServerError();
