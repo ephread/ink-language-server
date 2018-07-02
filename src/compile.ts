@@ -81,7 +81,7 @@ export function prepareTempDirectoryForCompilation(
               return isDir || isInk;
             } catch (error) {
               logger.log(
-                `WARNING: File '${src}' doesn't exist and will be ignored. - ` + error.message
+                `WARNING: File '${src}' doesn't exist and will be ignored. - ${error.message}`
               );
               return false;
             }
@@ -89,7 +89,7 @@ export function prepareTempDirectoryForCompilation(
         },
         copyError => {
           if (copyError) {
-            logger.log("Could not copy files : " + copyError.message);
+            logger.log(`Could not copy files: ${copyError.message}`);
             callback(undefined);
           } else {
             callback(tempDirectory);
@@ -111,9 +111,11 @@ export function prepareTempDirectoryForCompilation(
 export function updateFile(
   document: TextDocument,
   workspace: InkWorkspace,
+  logger: IConnectionLogger,
   callback: (error: Error) => void
 ) {
   if (!workspace.folder || !workspace.temporaryCompilationDirectory) {
+    logger.log(`Could not update file: ${document.uri}`);
     return;
   }
 

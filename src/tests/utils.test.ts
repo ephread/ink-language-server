@@ -9,14 +9,14 @@ import {
   InkErrorType,
   PartialInkConfigurationSettings,
   Platform
-} from "../src/types";
+} from "../types";
 import {
   determinePlatform,
   getDiagnosticSeverityFromInkErrorType,
   isFilePathChildOfDirPath,
   isRunThroughMono,
   mergeSettings
-} from "../src/utils";
+} from "../utils";
 
 describe("isFilePathChildOfDirPath", () => {
   it("returns true when the given file is a child of the given directory", () => {
