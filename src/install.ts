@@ -8,6 +8,8 @@ import * as Fs from "fs";
 import * as Path from "path";
 import * as Request from "request";
 
+import { IConnectionLogger } from "./types";
+
 const INK_VERSION = '0.8.1';
 
 /** Global progress used during archive download. */
@@ -26,16 +28,6 @@ const messages = Object.freeze({
     "For alternative options please read: " +
     "https://github.com/ephread/ink-language-server/blob/master/README.md#inklecate"
 });
-
-/**
- * Log the given message.
- *
- * @param message message to log.
- */
-function log(message: any) {
-  // tslint:disable-next-line no-console
-  console.log(message);
-}
 
 /**
  * Returns the name of the archive to download, depending on the architecture.
@@ -109,27 +101,27 @@ function downloadDependency(
         .pipe(Fs.createWriteStream(destinationPath).on("error", callback))
         .on("finish", callback);
 
-      if (process.env.npm_config_progress === "true") {
-        const length = parseInt(response.headers["content-length"] as string, 10);
-        progress = new Progress.Bar({}, Progress.Presets.legacy);
-        progress.start(length, 0);
+      const length = parseInt(response.headers["content-length"] as string, 10);
+      progress = new Progress.Bar({}, Progress.Presets.legacy);
+      progress.start(length, 0);
 
-        response
-          .on("data", chunk => {
-            progress.increment(chunk.length);
-          })
-          .on("end", () => {
-            progress.stop();
-          });
+      response
+        .on("data", chunk => {
+          progress.increment(chunk.length);
+        })
+        .on("end", () => {
+          progress.stop();
+        });
       }
-    }
+  }).on("error", error => {
+    handleError(`${error}`, callback);
   });
 }
 
 /**
  *
  */
-function checkPlatformAndDownloadBinaryDependency() {
+export function checkPlatformAndDownloadBinaryDependency(connection: IConnectionLogger, callback: (success: boolean) => void) {
   if (isRunningOnMac()) {
     // Running on a mac.
     const bundleName = optionalMacOsBundleName();
@@ -137,33 +129,37 @@ function checkPlatformAndDownloadBinaryDependency() {
 
     if (bundleName) {
       const url = `${urlpart}${bundleName}`;
-      const vendorDir = Path.join(__dirname, "../../vendor/");
+      const vendorDir = Path.join(__dirname, "../vendor/");
       const filePath = Path.join(vendorDir, bundleName);
 
       Fs.stat('./vendor/inklecate', (statError, stat) => {
         if (stat) {
-          log(`Running on macOS, inklecate has already been downloaded.`);
+          connection.log(`Running on macOS, inklecate has already been downloaded.`);
+          callback(true);
         } else {
-          log(`Running on macOS, fetching inkeclate from: ${url}`);
+          connection.log(`Running on macOS, fetching inkeclate from… ${url}`);
 
           downloadDependency(url, filePath, error => {
             if (error) {
               if (progress) {
                 progress.stop();
               }
-              log(error);
-              log(messages.installError);
+              connection.log(`${error}`);
+              connection.log(messages.installError);
+              callback(false);
             } else {
               Extract(filePath, { dir: vendorDir }, extractError => {
                 if (extractError) {
-                  log(extractError.message);
+                  connection.log(extractError.message);
+                  callback(false);
                 } else {
                   Fs.unlink(filePath, unLinkError => {
                     if (unLinkError) {
-                      log(unLinkError);
+                      connection.log(`${unLinkError}`);
                     }
                   });
-                  log("Inklecate successfully installed!");
+                  connection.log("Inklecate successfully installed!");
+                  callback(true);
                 }
               });
             }
@@ -172,8 +168,7 @@ function checkPlatformAndDownloadBinaryDependency() {
       });
     }
   } else if (!isRunningOnWindows()) {
-    log(messages.unsupportedPlatform);
+    connection.log(messages.unsupportedPlatform);
+    callback(true);
   }
 }
-
-checkPlatformAndDownloadBinaryDependency();

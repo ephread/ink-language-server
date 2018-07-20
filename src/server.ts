@@ -37,6 +37,8 @@ import {
 
 import { getDiagnosticSeverityFromInkErrorType, isFilePathChildOfDirPath } from "./utils";
 
+import { checkPlatformAndDownloadBinaryDependency } from "./install";
+
 /* Properties */
 /******************************************************************************/
 /** Capabilities defined by the client. Defaults to none. */
@@ -67,6 +69,8 @@ const workspaceDirectories: Map<string, InkWorkspace> = new Map();
  * URIs of the client's `TextDocument` will be used as keys.
  */
 const documentSettings: Map<string, Thenable<PartialInkConfigurationSettings>> = new Map();
+
+let canCompile = false;
 
 /* Helpers */
 /******************************************************************************/
@@ -222,6 +226,8 @@ async function initializeInkWorkspaces() {
  * @param document the document to update.
  */
 async function updateDocumentAndCompileWorkspace(document: TextDocument) {
+  if (!canCompile) { return; }
+
   const workspace = getInkWorkspaceOfDocument(document);
   if (!workspace) {
     return;
@@ -248,6 +254,8 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
  * @param workspace the ink workspace to compile.
  */
 async function executeCompileCommand(documentUri: string, workspace: InkWorkspace) {
+  if (!canCompile) { return; }
+
   const settings = await fetchDocumentConfigurationSettings(documentUri);
 
   compileProject(settings, workspace, logger, notifyClientAndPushDiagnostics);
@@ -298,6 +306,10 @@ connection.onInitialized(() => {
   }
 
   initializeInkWorkspaces();
+
+  checkPlatformAndDownloadBinaryDependency(logger, (success) => {
+    canCompile = success;
+  });
 });
 
 connection.onDidChangeConfiguration(change => {
