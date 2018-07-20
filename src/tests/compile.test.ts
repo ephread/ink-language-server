@@ -53,9 +53,9 @@ describe("prepareTempDirectoryForCompilation", () => {
     });
   });
 
-  it("log an error silently if the workspace directory doesn't exist", done => {
+  it("calls the callback with undefined if the workspace directory doesn't exist", done => {
     prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDirectory => {
-      expect(tempDirectory).toBe(compileTmpDirectory);
+      expect(tempDirectory).toBe(undefined);
       expect(log.mock.calls.length).toBe(2); // Accounting for the very first info log call.
       done();
     });

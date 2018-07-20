@@ -17,7 +17,7 @@ A language server for inkle's Ink, that adheres to the [Language Server Protocol
   * [Getting Started](#getting-started)
   	* [Installation](#installation)
   	* [Running](#running)
-  	* [Writing a client](#writing-a-client)
+  	* [Configuration](#configuration)
   * [Inklecate](#inklecate)
   	* [macOS](#installation)
   	* [Linux and other platforms](#linux-and-other-platforms)
@@ -25,7 +25,7 @@ A language server for inkle's Ink, that adheres to the [Language Server Protocol
 
 ## Getting started
 
-The server is written in Type Script. It is mostly intended to be run via [`ink-vscode`], but could be run with any client supporting LSP.
+The server is written in TypeScript. It is mostly intended to be run via [`ink-vscode`], but could be run with any client supporting LSP. You typically don't need to start the server yourself.
 
 [`ink-vscode`]: https://github.com/sequitur/ink-vscode
 
@@ -56,14 +56,14 @@ $ node lib/server.js [--node-ipc|--stdio|--socket={number}]
 The server supports three configuration settings.
 
 - `ink.mainStoryPath` is path to the main ink file, used by Inklecate to build the story. This setting falls back to `./main.ink`.
-- `ink.inklecateExecutablePath` path to the inklecate, you would like to use if you don't want to use the bundled one. If `inklecate` is accessible in `$PATH`, you can just provide `inklecate`.
+- `ink.inklecateExecutablePath` path to the inklecate, you would like to use if you don't want to use the bundled one. If inklecate is accessible in `$PATH`, you can just provide `inklecate`.
 - `ink.runThroughMono` by default, this setting is `false`. You can force the server to use Mono by setting it to `true`.
 
 #### Custom notifications from the server
 After every successful compilation, the server will post a notification named `inkWorkspace/didCompileStory`, with the following parameters:
 
 ```typescript
-export interface DidCompileStoryParams {
+export interface SaveCompiledStoryParams {
     /** Uri of the current workspace (in which the compilation happened). */
     workspaceUri: string;
 
