@@ -11,11 +11,11 @@ const install = spawn('node', ['./lib/scripts/install.js'], {
 });
 install.on('exit', (code) => {
   exitProcess(code);
-  
+
   // If the directory is not found, that probably means we are installed as a dependency.
   // If we are installed as a dependency it may (or may not) be a good idea to check
   // for vscode install script in the parent directory.
-  // 
+  //
   // Worst case scenario, the install script in run twice. If anyone has a better way to handle
   // the case, I'd like to know!
   const firstPath = './node_modules/vscode/bin/install';
@@ -35,20 +35,20 @@ install.on('exit', (code) => {
             cwd: process.cwd(),
             stdio: "inherit"
           });
-          
+
           secondStat.on('exit', exitProcess);
         } else {
           // tslint:disable-next-line no-console
-          console.log("Could no locate vscode type installer, aborting…")
+          console.log("Could no locate vscode type installer, aborting…");
           exitProcess(1);
         }
-      })
+      });
     }
-  })
+  });
 });
 
 function exitProcess(code: number) {
   if (code !== 0) {
-    process.exit(code)
+    process.exit(code);
   }
 }

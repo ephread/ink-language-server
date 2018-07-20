@@ -74,8 +74,8 @@ export namespace InkErrorType {
     /**
      * Parses the given string and returns the corresponding `InkErrorType`.
      * If the value could not be found, returns `undefined`.
-     * 
-     * @param errorType the string to parse. 
+     *
+     * @param errorType the string to parse.
      */
     export function parse(errorType: string): InkErrorType | undefined {
         switch(errorType) {
@@ -87,4 +87,14 @@ export namespace InkErrorType {
             default: return undefined;
         }
     }
+}
+/**
+ * Parameters sent with the `inkWorkspace/didCompileStory` notification.
+ */
+export interface DidCompileStoryParams {
+    /** Uri of the current workspace (in which the compilation happened). */
+    workspaceUri: string;
+
+    /** Uri of the compiled story, a JSON file. */
+    storyUri: string;
 }

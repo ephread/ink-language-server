@@ -5,11 +5,10 @@
 import * as Fs from "fs-extra";
 import * as Path from "path";
 
-import { DiagnosticSeverity, WorkspaceFolder } from "vscode-languageserver";
+import { DiagnosticSeverity } from "vscode-languageserver";
 
 import {
   InkConfigurationSettings,
-  InkError,
   InkErrorType,
   PartialInkConfigurationSettings,
   Platform,
@@ -48,12 +47,12 @@ export function getDiagnosticSeverityFromInkErrorType(type: InkErrorType): Diagn
 
 export function determinePlatform(): Platform {
   if (process.platform === "win32") {
-      return Platform.Windows
+      return Platform.Windows;
   } else if (process.platform === "darwin") {
-      return Platform.MacOs
+      return Platform.MacOs;
   }
 
-  return Platform.Other
+  return Platform.Other;
 }
 
 /**
@@ -115,7 +114,7 @@ export function mergeSettings(
 
 /**
  * Returns given string with escaped characters, for use as a regular expression pattern.
- * 
+ *
  * @param source the string to escape
  */
 export function escapeForRegExp(source: string): string {

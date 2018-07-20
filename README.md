@@ -17,7 +17,7 @@ A language server for inkle's Ink, that adheres to the [Language Server Protocol
   * [Getting Started](#getting-started)
   	* [Installation](#installation)
   	* [Running](#running)
-  	* [Configuration](#configuration)
+  	* [Writing a client](#writing-a-client)
   * [Inklecate](#inklecate)
   	* [macOS](#installation)
   	* [Linux and other platforms](#linux-and-other-platforms)
@@ -25,7 +25,7 @@ A language server for inkle's Ink, that adheres to the [Language Server Protocol
 
 ## Getting started
 
-The server is written in Type Script. It is mostly intended to be run via [`ink-vscode`], but could be run with any client supporting LSP. You typically don't need to start the server yourself.
+The server is written in Type Script. It is mostly intended to be run via [`ink-vscode`], but could be run with any client supporting LSP.
 
 [`ink-vscode`]: https://github.com/sequitur/ink-vscode
 
@@ -50,13 +50,42 @@ If you want to run the server as-is, the entry point is located in `lib/server.j
 $ node lib/server.js [--node-ipc|--stdio|--socket={number}]
 ```
 
-### Configuration
+### Writing a client
 
-The server supports three configuration settings, which will most likely be supported as well by your extension.
+#### Configuration Settings
+The server supports three configuration settings.
 
 - `ink.mainStoryPath` is path to the main ink file, used by Inklecate to build the story. This setting falls back to `./main.ink`.
-- `ink.inklecateExecutablePath` path to the inklecate, you would like to use if you don't want to use the bundled one. If inklecate is accessible in `$PATH`, you can just provide `inklecate`.
+- `ink.inklecateExecutablePath` path to the inklecate, you would like to use if you don't want to use the bundled one. If `inklecate` is accessible in `$PATH`, you can just provide `inklecate`.
 - `ink.runThroughMono` by default, this setting is `false`. You can force the server to use Mono by setting it to `true`.
+
+#### Custom notifications from the server
+After every successful compilation, the server will post a notification named `inkWorkspace/didCompileStory`, with the following parameters:
+
+```typescript
+export interface DidCompileStoryParams {
+    /** Uri of the current workspace (in which the compilation happened). */
+    workspaceUri: string;
+
+    /** Uri of the compiled story, a JSON file. */
+    storyUri: string;
+}
+```
+
+You can take advantage of this feature to keep track of compiled stories and, for instance, provide
+a preview mechanism.
+
+The type is exposed by the package, so you can simply import it in your code:
+
+```typescript
+import { DidCompileStoryParams } from 'ink-language-server';
+```
+
+#### Exposed commands
+The server expose the `compileStory` command, which can be use to trigger a full compilation. It
+takes a single parameter: a URI, which will most likely be the current file in the editor.
+
+Internally, this URI will be used to infer which workspace/story the server should compile.
 
 ## Inklecate
 
@@ -68,7 +97,8 @@ If the server detects that it's being intalled on macOS, it will try to download
 
 1. Download the binary archive yourself, extract it somewhere on your system and configure your language client to send its absolute path as the value of `ink.inklecateExecutablePath`.
 2. Download the binary archive yourself and extract its content to `<language-server-path>/vendor/`.
-3. Install a [Mono runtime], the server will then use the Windows binaries and run them through mono.
+3. Install a [Mono runtime], the server will then use the Windows binaries and run them through
+   mono.
 
 ### Linux and other platforms
 

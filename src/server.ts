@@ -10,9 +10,9 @@ import {
   ProposedFeatures,
   TextDocument,
   TextDocuments
-} from "vscode-languageserver";
+} from "vscode-languageserver/";
 
-import Uri from "vscode-uri";
+import Uri from "vscode-uri/";
 
 import {
   compileProject,
@@ -23,7 +23,7 @@ import {
 
 import {
   Capabilities,
-  InkConfigurationSettings,
+  DidCompileStoryParams,
   InkConnectionLogger,
   InkError,
   InkWorkspace,
@@ -31,9 +31,11 @@ import {
 } from "./types";
 
 import {
-  getDiagnosticSeverityFromInkErrorType,
-  isFilePathChildOfDirPath
-} from "./utils";
+  Commands,
+  Notifications
+} from "./identifiers";
+
+import { getDiagnosticSeverityFromInkErrorType, isFilePathChildOfDirPath } from "./utils";
 
 /* Properties */
 /******************************************************************************/
@@ -79,7 +81,19 @@ const documentSettings: Map<string, Thenable<PartialInkConfigurationSettings>> =
  */
 function getInkWorkspaceOfDocument(document: TextDocument): InkWorkspace | undefined {
   const documentPath = Uri.parse(document.uri).fsPath;
+  return getInkWorkspaceOfFilePath(documentPath);
+}
 
+/**
+ * Returns the InkWorkspace of the given uri. If no workspace could be
+ * found, returns `undefined`.
+ *
+ * Since Inklecate requires as a full compilation of the entire related project
+ * to push diagnostics, the workspace of each document must be known.
+ *
+ * @param document a text document, belonging to the returned workspace.
+ */
+function getInkWorkspaceOfFilePath(documentUri: string): InkWorkspace | undefined {
   for (const workspaceKey of workspaceDirectories.keys()) {
     const workspace = workspaceDirectories.get(workspaceKey);
     if (!workspace) {
@@ -87,7 +101,7 @@ function getInkWorkspaceOfDocument(document: TextDocument): InkWorkspace | undef
     }
 
     const workspacePath = Uri.parse(workspace.folder.uri).fsPath;
-    if (isFilePathChildOfDirPath(documentPath, workspacePath)) {
+    if (isFilePathChildOfDirPath(documentUri, workspacePath)) {
       return workspace;
     }
   }
@@ -98,23 +112,31 @@ function getInkWorkspaceOfDocument(document: TextDocument): InkWorkspace | undef
 /**
  * Fetch the configuration settings of the given document, from the client.
  *
- * @param document the document of which fetch the configuration settings.
+ * @param document the document of which fetch the configuration settings,
+ *                 can either be a TextDocument or a string-based uri.
  */
 function fetchDocumentConfigurationSettings(
-  document: TextDocument
+  documentOrUri: TextDocument | string
 ): Thenable<PartialInkConfigurationSettings> {
+  let documentUri: string;
+  if (typeof documentOrUri === "string") {
+    documentUri = documentOrUri;
+  } else {
+    documentUri = documentOrUri.uri;
+  }
+
   if (!capabilities.configuration) {
     return Promise.resolve(Object.assign({}, DEFAULT_SETTINGS));
   }
 
-  let result = documentSettings.get(document.uri);
+  let result = documentSettings.get(documentUri);
   if (!result) {
     result = connection.workspace.getConfiguration({
-      scopeUri: document.uri,
+      scopeUri: documentUri,
       section: "ink"
     });
 
-    documentSettings.set(document.uri, result);
+    documentSettings.set(documentUri, result);
   }
 
   return result;
@@ -125,7 +147,11 @@ function fetchDocumentConfigurationSettings(
  *
  * @param errors the errors to push.
  */
-function pushDiagnostics(errors: InkError[]) {
+function notifyClientAndPushDiagnostics(
+  workspace: InkWorkspace,
+  outputStoryPath: string,
+  errors: InkError[]
+) {
   for (const textDocument of documents.all()) {
     const diagnostics: Diagnostic[] = [];
     for (const error of errors) {
@@ -142,6 +168,17 @@ function pushDiagnostics(errors: InkError[]) {
 
         diagnostics.push(diagnostic);
       }
+    }
+
+    // If there a no errors to report, we'll send a custom notification to
+    // the client, asking it to remember the path to the compiled story.
+    if (diagnostics.length === 0) {
+      const params: DidCompileStoryParams = {
+        workspaceUri: workspace.folder.uri,
+        storyUri: `file://${outputStoryPath}`
+      };
+
+      connection.sendNotification(Notifications.didCompileStory, params);
     }
 
     connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
@@ -197,15 +234,29 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
       connection.console.log(`Could not update '${document.uri}', ${error.message}`);
       reportServerError();
     } else {
-      compileProject(settings, workspace, logger, pushDiagnostics);
+      compileProject(settings, workspace, logger, notifyClientAndPushDiagnostics);
     }
   });
+}
+
+/**
+ * Compile the story contained in `workspace`.
+ * `documentPath` is required to retrieve the proper settings, which
+ * are scoped to the resource.
+ *
+ * @param documentUri the document URI used to retrieved the settings.
+ * @param workspace the ink workspace to compile.
+ */
+async function executeCompileCommand(documentUri: string, workspace: InkWorkspace) {
+  const settings = await fetchDocumentConfigurationSettings(documentUri);
+
+  compileProject(settings, workspace, logger, notifyClientAndPushDiagnostics);
 }
 
 function reportServerError() {
   connection.window.showErrorMessage(
     "An unrecoverable error occured with Ink Language Server. " +
-    "Please see the logs for more information."
+      "Please see the logs for more information."
   );
 }
 
@@ -227,7 +278,10 @@ connection.onInitialize((params: InitializeParams) => {
 
   return {
     capabilities: {
-      textDocumentSync: documents.syncKind
+      textDocumentSync: documents.syncKind,
+      executeCommandProvider: {
+        commands: [Commands.compileStory]
+      }
     }
   };
 });
@@ -249,6 +303,33 @@ connection.onInitialized(() => {
 connection.onDidChangeConfiguration(change => {
   documentSettings.clear();
 });
+
+connection.onExecuteCommand(
+  (params): void => {
+    if (params.command !== Commands.compileStory) {
+      return undefined;
+    }
+
+    connection.console.log('Received compilation command.');
+
+    let fileURI: string;
+    if (!params.arguments || params.arguments.length < 1) {
+      fileURI = DEFAULT_SETTINGS.mainStoryPath;
+    } else {
+      fileURI = params.arguments[0] as string;
+    }
+
+    const documentPath = Uri.parse(fileURI).fsPath;
+    const workspace = getInkWorkspaceOfFilePath(documentPath);
+
+    if (!workspace) {
+      connection.console.log("Could not retrieve the workspace of the given file.");
+      return undefined;
+    }
+
+    executeCompileCommand(documentPath, workspace);
+  }
+);
 
 /* Document callbacks */
 /******************************************************************************/

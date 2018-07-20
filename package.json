@@ -2,6 +2,7 @@
   "name": "ink-language-server",
   "version": "0.1.3",
   "description": "Implementation of the Language Server Protocol for inkle's Ink.",
+  "main": "./lib/main.js",
   "keywords": [
     "LSP",
     "ink",

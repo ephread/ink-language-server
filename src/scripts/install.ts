@@ -14,7 +14,7 @@ const INK_VERSION = '0.8.1';
 let progress: Progress.Bar;
 
 /** Messages displayed to the user. */
-const messages = {
+const messages = Object.freeze({
   unsupportedPlatform:
     "You are running a platform for which there are no prebuilt binaries. " +
     "The server comes bundled with an inklecate requiring the Mono runtime to run. " +
@@ -25,11 +25,11 @@ const messages = {
     "Inklecate could not be installed automatically. " +
     "For alternative options please read: " +
     "https://github.com/ephread/ink-language-server/blob/master/README.md#inklecate"
-}
+});
 
 /**
  * Log the given message.
- * 
+ *
  * @param message message to log.
  */
 function log(message: any) {
@@ -72,10 +72,10 @@ function isResponseOk(response: Request.Response) {
 }
 
 /**
- * 
- * 
- * @param error 
- * @param callback 
+ *
+ *
+ * @param error
+ * @param callback
  */
 function handleError(error: Error | string, callback: (error: Error | string) => void) {
   let message = "Cannot download inklecate. Reason: ";
@@ -91,7 +91,7 @@ function handleError(error: Error | string, callback: (error: Error | string) =>
 
 /**
  * Download the prebuilt binary from the given `url`, and store it at the given `destinationPath`.
- * 
+ *
  * @param url URL of the prebuilt binary.
  * @param destinationPath path at which store the binary.
  * @param callback callback called upon completion of the download or when an error is encountered.
@@ -127,25 +127,25 @@ function downloadDependency(
 }
 
 /**
- * 
+ *
  */
 function checkPlatformAndDownloadBinaryDependency() {
   if (isRunningOnMac()) {
     // Running on a mac.
     const bundleName = optionalMacOsBundleName();
     const urlpart = `https://dl.bintray.com/ephread/ink-language-server/`;
-  
+
     if (bundleName) {
       const url = `${urlpart}${bundleName}`;
       const vendorDir = Path.join(__dirname, "../../vendor/");
       const filePath = Path.join(vendorDir, bundleName);
-  
+
       Fs.stat('./vendor/inklecate', (statError, stat) => {
         if (stat) {
           log(`Running on macOS, inklecate has already been downloaded.`);
         } else {
           log(`Running on macOS, fetching inkeclate from: ${url}`);
-  
+
           downloadDependency(url, filePath, error => {
             if (error) {
               if (progress) {
@@ -169,7 +169,7 @@ function checkPlatformAndDownloadBinaryDependency() {
             }
           });
         }
-      })
+      });
     }
   } else if (!isRunningOnWindows()) {
     log(messages.unsupportedPlatform);

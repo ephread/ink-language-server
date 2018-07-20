@@ -142,7 +142,7 @@ export function compileProject(
   settings: PartialInkConfigurationSettings,
   inkWorkspace: InkWorkspace,
   logger: IConnectionLogger,
-  completion: (errors: InkError[]) => void
+  completion: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
 ) {
   const tempDir = inkWorkspace.temporaryCompilationDirectory;
   if (!tempDir) {
@@ -194,12 +194,13 @@ function spawnInklecate(
   mainStoryTempPath: string,
   inkWorkspace: InkWorkspace,
   logger: IConnectionLogger,
-  completion: (errors: InkError[]) => void
+  completion: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
 ) {
   const command = settings.runThroughMono ? "mono" : settings.inklecateExecutablePath;
+  const outputStoryPath = `${mainStoryTempPath}.json`;
   const args = settings.runThroughMono
-    ? [settings.inklecateExecutablePath, mainStoryTempPath]
-    : [mainStoryTempPath];
+    ? [settings.inklecateExecutablePath, "-o", outputStoryPath, mainStoryTempPath]
+    : ["-o", outputStoryPath, mainStoryTempPath];
 
   const inklecateProcess = ChildProcess.spawn(command, args, {
     cwd: Path.dirname(settings.inklecateExecutablePath),
@@ -233,6 +234,8 @@ function spawnInklecate(
     );
   });
 
+  let errors: InkError[] = [];
+
   inklecateProcess.stderr.setEncoding("utf8");
   inklecateProcess.stderr.on("data", text => {
     if (typeof text === "string") {
@@ -250,9 +253,17 @@ function spawnInklecate(
   inklecateProcess.stdout.setEncoding("utf8");
   inklecateProcess.stdout.on("data", text => {
     if (typeof text === "string") {
-      const errors = parseInklecateOutput(text, Path.dirname(settings.mainStoryPath), inkWorkspace);
-      completion(errors);
+      const newErrors = parseInklecateOutput(
+        text,
+        Path.dirname(settings.mainStoryPath),
+        inkWorkspace
+      );
+      errors = errors.concat(newErrors);
     }
+  });
+
+  inklecateProcess.stdout.on("close", () => {
+    completion(inkWorkspace, outputStoryPath, errors);
   });
 }
 
@@ -286,8 +297,11 @@ function parseInklecateOutput(
 
     if (errorMatches) {
       const errorType = InkErrorType.parse(errorMatches[1]);
-      const path =
-        Path.join(Uri.parse(workspace.folder.uri).fsPath, mainStoryPathPrefix, errorMatches[3]);
+      const path = Path.join(
+        Uri.parse(workspace.folder.uri).fsPath,
+        mainStoryPathPrefix,
+        errorMatches[3]
+      );
 
       if (errorType) {
         inkErrors.push({
