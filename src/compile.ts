@@ -10,7 +10,7 @@ import * as Uuid from "uuid/v4";
 
 import Uri from "vscode-uri";
 
-import { IConnection, TextDocument, WorkspaceFolder } from "vscode-languageserver";
+import { TextDocument, WorkspaceFolder } from "vscode-languageserver";
 import {
   IConnectionLogger,
   InkConfigurationSettings,
@@ -20,27 +20,20 @@ import {
   PartialInkConfigurationSettings,
   Platform
 } from "./types";
+
 import {
-  defaultInklecatePath,
-  determinePlatform,
   escapeForRegExp,
-  isRunThroughMono,
-  mergeSettings
 } from "./utils";
+
+import {
+  determinePlatform,
+  getDefaultSettings,
+  mergeSettings
+} from "./configuration";
 
 /* Constants */
 /******************************************************************************/
 const INK_EXTENSIONS = ["ink", "ink2"];
-
-/**
- * The global settings, used when the `workspace/configuration` request is not supported
- * by the client.
- */
-export const DEFAULT_SETTINGS: InkConfigurationSettings = {
-  inklecateExecutablePath: defaultInklecatePath(determinePlatform()),
-  mainStoryPath: "main.ink",
-  runThroughMono: isRunThroughMono()
-};
 
 /* Helpers */
 /******************************************************************************/
@@ -150,7 +143,7 @@ export function compileProject(
     return;
   }
 
-  const mergedSettings = mergeSettings(settings, DEFAULT_SETTINGS);
+  const mergedSettings = mergeSettings(settings, getDefaultSettings());
 
   const mainStoryTempPath = Path.join(tempDir, mergedSettings.mainStoryPath);
 

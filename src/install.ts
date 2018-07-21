@@ -132,7 +132,7 @@ export function checkPlatformAndDownloadBinaryDependency(connection: IConnection
       const vendorDir = Path.join(__dirname, "../vendor/");
       const filePath = Path.join(vendorDir, bundleName);
 
-      Fs.stat('./vendor/inklecate', (statError, stat) => {
+      Fs.stat(Path.join(vendorDir, 'inklecate'), (statError, stat) => {
         if (stat) {
           connection.log(`Running on macOS, inklecate has already been downloaded.`);
           callback(true);

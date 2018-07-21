@@ -16,7 +16,6 @@ import Uri from "vscode-uri/";
 
 import {
   compileProject,
-  DEFAULT_SETTINGS,
   prepareTempDirectoryForCompilation,
   updateFile
 } from "./compile";
@@ -29,6 +28,11 @@ import {
   InkWorkspace,
   PartialInkConfigurationSettings
 } from "./types";
+
+import {
+  flagDefaultSettingsAsDirty,
+  getDefaultSettings,
+} from "./configuration";
 
 import {
   Commands,
@@ -130,7 +134,7 @@ function fetchDocumentConfigurationSettings(
   }
 
   if (!capabilities.configuration) {
-    return Promise.resolve(Object.assign({}, DEFAULT_SETTINGS));
+    return Promise.resolve(Object.assign({}, getDefaultSettings()));
   }
 
   let result = documentSettings.get(documentUri);
@@ -308,6 +312,7 @@ connection.onInitialized(() => {
   initializeInkWorkspaces();
 
   checkPlatformAndDownloadBinaryDependency(logger, (success) => {
+    flagDefaultSettingsAsDirty();
     canCompile = success;
   });
 });
@@ -326,7 +331,7 @@ connection.onExecuteCommand(
 
     let fileURI: string;
     if (!params.arguments || params.arguments.length < 1) {
-      fileURI = DEFAULT_SETTINGS.mainStoryPath;
+      fileURI = getDefaultSettings().mainStoryPath;
     } else {
       fileURI = params.arguments[0] as string;
     }

@@ -4,13 +4,12 @@
 
 jest.mock("uuid/v4", () => () => "00000000-0000-0000-0000-000000000000");
 
-import { IConnection, Position, Range, TextDocument, WorkspaceFolder } from "vscode-languageserver";
+import { Position, Range, TextDocument, WorkspaceFolder } from "vscode-languageserver";
 
 import {
   IConnectionLogger,
-  InkConfigurationSettings,
+  InkErrorType,
   InkWorkspace,
-  PartialInkConfigurationSettings
 } from "../types";
 
 import { prepareTempDirectoryForCompilation, updateFile } from "../compile";
