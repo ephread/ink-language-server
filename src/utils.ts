@@ -4,7 +4,7 @@
 
 import * as Path from "path";
 
-import { DiagnosticSeverity } from "vscode-languageserver";
+import { DiagnosticSeverity } from "vscode-languageserver/lib/main";
 
 import { InkErrorType } from "./types";
 

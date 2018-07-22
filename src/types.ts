@@ -1,8 +1,8 @@
-import { IConnection, WorkspaceFolder } from "vscode-languageserver";
-
 // Copyright (c) Frédéric Maquin <fred@ephread.com>
 // Licensed under the MIT License.
 // See LICENSE in the project root for license information.
+
+import { IConnection, WorkspaceFolder } from "vscode-languageserver";
 
 /** Server configuration. */
 export interface InkConfigurationSettings {
@@ -88,6 +88,12 @@ export namespace InkErrorType {
         }
     }
 }
+
+export interface RuntimeChoice {
+    index: number;
+    text: string;
+}
+
 /**
  * Parameters sent with the `inkWorkspace/didCompileStory` notification.
  */
@@ -97,4 +103,20 @@ export interface DidCompileStoryParams {
 
     /** Uri of the compiled story, a JSON file. */
     storyUri: string;
+}
+
+export interface RuntimeTextParams {
+    text: string;
+}
+
+export interface RuntimeTagParams {
+    tags: string[];
+}
+
+export interface RuntimeChoicesParams {
+    choice: RuntimeChoice;
+}
+
+export interface RuntimeErrorParams {
+    error: string;
 }

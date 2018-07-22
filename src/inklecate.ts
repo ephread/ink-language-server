@@ -8,7 +8,7 @@ import * as Os from "os";
 import * as Path from "path";
 import * as Uuid from "uuid/v4";
 
-import Uri from "vscode-uri";
+import Uri from "vscode-uri/lib/umd";
 
 import { TextDocument, WorkspaceFolder } from "vscode-languageserver";
 import {
@@ -18,7 +18,8 @@ import {
   InkErrorType,
   InkWorkspace,
   PartialInkConfigurationSettings,
-  Platform
+  Platform,
+  RuntimeChoice
 } from "./types";
 
 import {
@@ -31,9 +32,13 @@ import {
   mergeSettings
 } from "./configuration";
 
+import { StoryRenderer } from './story-renderer';
+
 /* Constants */
 /******************************************************************************/
 const INK_EXTENSIONS = ["ink", "ink2"];
+
+let inklecateProcess: ChildProcess.ChildProcess | undefined;
 
 /* Helpers */
 /******************************************************************************/
@@ -135,7 +140,8 @@ export function compileProject(
   settings: PartialInkConfigurationSettings,
   inkWorkspace: InkWorkspace,
   logger: IConnectionLogger,
-  completion: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
+  storyRenderer: StoryRenderer | undefined,
+  compileCallback: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
 ) {
   const tempDir = inkWorkspace.temporaryCompilationDirectory;
   if (!tempDir) {
@@ -168,7 +174,7 @@ export function compileProject(
       logger.showErrorMessage(storyErrorMessage);
     })
     .then(() => {
-      spawnInklecate(mergedSettings, mainStoryTempPath, inkWorkspace, logger, completion);
+      spawnInklecate(mergedSettings, mainStoryTempPath, inkWorkspace, logger, storyRenderer, compileCallback);
     });
 }
 
@@ -187,15 +193,24 @@ function spawnInklecate(
   mainStoryTempPath: string,
   inkWorkspace: InkWorkspace,
   logger: IConnectionLogger,
-  completion: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
+  storyRenderer: StoryRenderer | undefined,
+  compileCallback: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
 ) {
   const command = settings.runThroughMono ? "mono" : settings.inklecateExecutablePath;
   const outputStoryPath = `${mainStoryTempPath}.json`;
-  const args = settings.runThroughMono
-    ? [settings.inklecateExecutablePath, "-o", outputStoryPath, mainStoryTempPath]
-    : ["-o", outputStoryPath, mainStoryTempPath];
+  let args: string[];
 
-  const inklecateProcess = ChildProcess.spawn(command, args, {
+  if (storyRenderer) {
+    args = settings.runThroughMono
+             ? [settings.inklecateExecutablePath, "-p", mainStoryTempPath]
+             : ["-p", mainStoryTempPath];
+  } else {
+    args = settings.runThroughMono
+             ? [settings.inklecateExecutablePath, "-o", outputStoryPath, mainStoryTempPath]
+             : ["-o", outputStoryPath, mainStoryTempPath];
+  }
+
+  inklecateProcess = ChildProcess.spawn(command, args, {
     cwd: Path.dirname(settings.inklecateExecutablePath),
     env: {
       MONO_BUNDLED_OPTIONS: "--debug"
@@ -229,6 +244,7 @@ function spawnInklecate(
 
   let errors: InkError[] = [];
 
+  inklecateProcess.stdin.setDefaultEncoding("utf8");
   inklecateProcess.stderr.setEncoding("utf8");
   inklecateProcess.stderr.on("data", text => {
     if (typeof text === "string") {
@@ -246,17 +262,23 @@ function spawnInklecate(
   inklecateProcess.stdout.setEncoding("utf8");
   inklecateProcess.stdout.on("data", text => {
     if (typeof text === "string") {
-      const newErrors = parseInklecateOutput(
+      const newErrors = parseErrorsOrRenderStory(
         text,
         Path.dirname(settings.mainStoryPath),
-        inkWorkspace
+        inkWorkspace,
+        storyRenderer
       );
       errors = errors.concat(newErrors);
     }
   });
 
   inklecateProcess.stdout.on("close", () => {
-    completion(inkWorkspace, outputStoryPath, errors);
+    if (storyRenderer) { storyRenderer.showEndOfStory(); }
+    compileCallback(inkWorkspace, outputStoryPath, errors);
+  });
+
+  inklecateProcess.on("exit", () => {
+    inklecateProcess = undefined;
   });
 }
 
@@ -268,10 +290,11 @@ function spawnInklecate(
  *                            temporary directory).
  * @param workspace the workspace for which the compilation took place.
  */
-function parseInklecateOutput(
+function parseErrorsOrRenderStory(
   text: string,
   mainStoryPathPrefix: string,
-  workspace: InkWorkspace
+  workspace: InkWorkspace,
+  storyRenderer: StoryRenderer | undefined
 ): InkError[] {
   // Strip Byte order mark
   text = text.replace(/^\uFEFF/, "");
@@ -284,9 +307,12 @@ function parseInklecateOutput(
 
   for (const line of lines) {
     const trimmedLine = line.trim();
-    const errorMatches = trimmedLine.match(
-      /^(ERROR|WARNING|RUNTIME ERROR|RUNTIME WARNING|TODO): ('([^']+)' )?line (\d+): (.+)/
-    );
+
+    const choiceMatches = trimmedLine.match(/^(\d+):\s*(.*)/);
+    const errorMatches = trimmedLine.match(/^(ERROR|WARNING|RUNTIME ERROR|RUNTIME WARNING|TODO): ('([^']+)' )?line (\d+): (.+)/);
+    const tagMatches = trimmedLine.match(/^(# tags:) (.+)/);
+    const promptMatches = trimmedLine.match(/^\?>/);
+    const endOfStoryMatches = trimmedLine.match(/^--- End of story ---/);
 
     if (errorMatches) {
       const errorType = InkErrorType.parse(errorMatches[1]);
@@ -297,17 +323,53 @@ function parseInklecateOutput(
       );
 
       if (errorType) {
-        inkErrors.push({
-          filePath: path,
-          lineNumber: parseInt(errorMatches[4]),
-          message: errorMatches[5],
-          type: errorType
-        });
+        if (errorType === InkErrorType.RuntimeError || errorType === InkErrorType.RuntimeWarning) {
+          if (storyRenderer) {
+            storyRenderer.reportError(`${errorType} while playing the story: ${errorMatches[5]} (in '${path}' at line ${parseInt(errorMatches[4])})`);
+          }
+        } else {
+          inkErrors.push({
+            filePath: path,
+            lineNumber: parseInt(errorMatches[4]),
+            message: errorMatches[5],
+            type: errorType
+          });
+        }
       }
+    } else if (tagMatches) {
+      if (storyRenderer) {
+        const tags = tagMatches[2].split(", ");
+        storyRenderer.showTag(tags);
+      }
+    } else if (choiceMatches) {
+      if (storyRenderer) {
+        const choice: RuntimeChoice = {
+          index: parseInt(choiceMatches[1]),
+          text: choiceMatches[2]
+        };
+
+        storyRenderer.showChoice(choice);
+      }
+    } else if (promptMatches) {
+      if (storyRenderer) { storyRenderer.showPrompt(); }
+    } else if (endOfStoryMatches) {
+      if (storyRenderer) { storyRenderer.showEndOfStory(); }
     } else if (line.length > 0) {
-      break;
+      if (storyRenderer) { storyRenderer.showText(line); }
     }
   }
 
   return inkErrors;
+}
+
+export function chooseOption(index: number) {
+  if (inklecateProcess) {
+    inklecateProcess.stdin.write(`${index}\n`);
+  }
+}
+
+export function killInklecate() {
+  if (inklecateProcess) {
+    inklecateProcess.kill();
+  }
 }

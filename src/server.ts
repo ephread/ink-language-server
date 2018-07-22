@@ -6,19 +6,22 @@ import {
   createConnection,
   Diagnostic,
   DidChangeConfigurationNotification,
+  ExecuteCommandParams,
   InitializeParams,
   ProposedFeatures,
   TextDocument,
   TextDocuments
-} from "vscode-languageserver/";
+} from "vscode-languageserver";
 
-import Uri from "vscode-uri/";
+import Uri from "vscode-uri";
 
 import {
+  chooseOption,
   compileProject,
+  killInklecate,
   prepareTempDirectoryForCompilation,
   updateFile
-} from "./compile";
+} from "./inklecate";
 
 import {
   Capabilities,
@@ -36,12 +39,14 @@ import {
 
 import {
   Commands,
-  Notifications
+  CompilationNotification,
+  RuntimeNotification
 } from "./identifiers";
 
 import { getDiagnosticSeverityFromInkErrorType, isFilePathChildOfDirPath } from "./utils";
 
 import { checkPlatformAndDownloadBinaryDependency } from "./install";
+import { StoryRenderer } from "./story-renderer";
 
 /* Properties */
 /******************************************************************************/
@@ -186,7 +191,7 @@ function notifyClientAndPushDiagnostics(
         storyUri: `file://${outputStoryPath}`
       };
 
-      connection.sendNotification(Notifications.didCompileStory, params);
+      connection.sendNotification(CompilationNotification.didCompileStory, params);
     }
 
     connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
@@ -244,7 +249,7 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
       connection.console.log(`Could not update '${document.uri}', ${error.message}`);
       reportServerError();
     } else {
-      compileProject(settings, workspace, logger, notifyClientAndPushDiagnostics);
+      compileProject(settings, workspace, logger, undefined, notifyClientAndPushDiagnostics);
     }
   });
 }
@@ -257,12 +262,13 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
  * @param documentUri the document URI used to retrieved the settings.
  * @param workspace the ink workspace to compile.
  */
-async function executeCompileCommand(documentUri: string, workspace: InkWorkspace) {
+async function executeCompileCommand(documentUri: string, workspace: InkWorkspace, play: boolean = false) {
   if (!canCompile) { return; }
 
   const settings = await fetchDocumentConfigurationSettings(documentUri);
+  const storyRenderer = play ? new StoryRenderer(connection) : undefined;
 
-  compileProject(settings, workspace, logger, notifyClientAndPushDiagnostics);
+  compileProject(settings, workspace, logger, storyRenderer, notifyClientAndPushDiagnostics);
 }
 
 function reportServerError() {
@@ -292,7 +298,11 @@ connection.onInitialize((params: InitializeParams) => {
     capabilities: {
       textDocumentSync: documents.syncKind,
       executeCommandProvider: {
-        commands: [Commands.compileStory]
+        commands: [
+          Commands.compileStory,
+          Commands.playStory,
+          Commands.selectOption
+        ]
       }
     }
   };
@@ -323,28 +333,18 @@ connection.onDidChangeConfiguration(change => {
 
 connection.onExecuteCommand(
   (params): void => {
-    if (params.command !== Commands.compileStory) {
-      return undefined;
+    switch (params.command) {
+      case Commands.compileStory:
+        runCompileStoryCommand(params);
+        break;
+      case Commands.playStory:
+        runPlayStoryCommand(params);
+        break;
+      case Commands.selectOption:
+        runSelectOptionCommand(params);
+        break;
+      default: break;
     }
-
-    connection.console.log('Received compilation command.');
-
-    let fileURI: string;
-    if (!params.arguments || params.arguments.length < 1) {
-      fileURI = getDefaultSettings().mainStoryPath;
-    } else {
-      fileURI = params.arguments[0] as string;
-    }
-
-    const documentPath = Uri.parse(fileURI).fsPath;
-    const workspace = getInkWorkspaceOfFilePath(documentPath);
-
-    if (!workspace) {
-      connection.console.log("Could not retrieve the workspace of the given file.");
-      return undefined;
-    }
-
-    executeCompileCommand(documentPath, workspace);
   }
 );
 
@@ -362,3 +362,71 @@ documents.onDidClose(event => {
 /******************************************************************************/
 documents.listen(connection);
 connection.listen();
+
+
+function runCompileStoryCommand(params: ExecuteCommandParams) {
+  connection.console.log('Received compilation command.');
+
+  const pathAndWorkspace = getDocumentPathFromParams(params);
+
+  if (!pathAndWorkspace) {
+    return undefined;
+  }
+
+  executeCompileCommand(pathAndWorkspace.documentPath, pathAndWorkspace.workspace);
+}
+
+function runPlayStoryCommand(params: ExecuteCommandParams) {
+  connection.console.log('Received play story command.');
+
+  const pathAndWorkspace = getDocumentPathFromParams(params);
+
+  if (!pathAndWorkspace) {
+    return undefined;
+  }
+
+  executeCompileCommand(pathAndWorkspace.documentPath, pathAndWorkspace.workspace, true);
+}
+
+function runSelectOptionCommand(params: ExecuteCommandParams) {
+  connection.console.log('Received select option command.');
+
+  if (!params.arguments || !params.arguments[0]) {
+    connection.window.showErrorMessage(`${Commands.selectOption} error: the command was called with no arguments.`);
+    return;
+  }
+
+  const index = parseInt(params.arguments[0]);
+
+  chooseOption(index);
+}
+
+function runKillInklecateCommand() {
+  connection.console.log('Received kill inklecate command.');
+
+  killInklecate();
+}
+
+function getDocumentPathFromParams(params: ExecuteCommandParams): DocumentPathAndWorkspace | undefined {
+  let fileURI: string;
+  if (!params.arguments || params.arguments.length < 1) {
+    fileURI = getDefaultSettings().mainStoryPath;
+  } else {
+    fileURI = params.arguments[0] as string;
+  }
+
+  const documentPath = Uri.parse(fileURI).fsPath;
+  const workspace = getInkWorkspaceOfFilePath(documentPath);
+
+  if (!workspace) {
+    connection.console.log("Could not retrieve the workspace of the given file.");
+    return undefined;
+  }
+
+  return { documentPath, workspace };
+}
+
+interface DocumentPathAndWorkspace {
+  documentPath: string;
+  workspace: InkWorkspace;
+}

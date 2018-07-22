@@ -2,5 +2,13 @@
 // Licensed under the MIT License.
 // See LICENSE in the project root for license information.
 
-export { DidCompileStoryParams } from './types';
+export {
+  DidCompileStoryParams,
+  RuntimeChoice,
+  RuntimeTextParams,
+  RuntimeTagParams,
+  RuntimeChoicesParams,
+  RuntimeErrorParams
+} from './types';
+
 export * from './identifiers';

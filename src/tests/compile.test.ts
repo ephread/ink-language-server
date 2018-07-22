@@ -4,7 +4,7 @@
 
 jest.mock("uuid/v4", () => () => "00000000-0000-0000-0000-000000000000");
 
-import { Position, Range, TextDocument, WorkspaceFolder } from "vscode-languageserver";
+import { Position, Range, TextDocument, WorkspaceFolder } from "vscode-languageserver/lib/main";
 
 import {
   IConnectionLogger,
@@ -12,7 +12,7 @@ import {
   InkWorkspace,
 } from "../types";
 
-import { prepareTempDirectoryForCompilation, updateFile } from "../compile";
+import { prepareTempDirectoryForCompilation, updateFile } from "../inklecate";
 
 import * as Fs from "fs";
 import * as FsExtra from "fs-extra";
