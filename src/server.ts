@@ -29,7 +29,8 @@ import {
   InkConnectionLogger,
   InkError,
   InkWorkspace,
-  PartialInkConfigurationSettings
+  PartialInkConfigurationSettings,
+  InkErrorType
 } from "./types";
 
 import {
@@ -169,13 +170,17 @@ function notifyClientAndPushDiagnostics(
     const diagnostics: Diagnostic[] = [];
     for (const error of errors) {
       if (Uri.parse(textDocument.uri).fsPath === error.filePath) {
+        let message = error.message;
+        if (error.type === InkErrorType.Todo) {
+          message = `Todo: ${message}`;
+        }
         const diagnostic: Diagnostic = {
           severity: getDiagnosticSeverityFromInkErrorType(error.type),
           range: {
             start: { line: error.lineNumber - 1, character: 0 },
             end: { line: error.lineNumber, character: 0 }
           },
-          message: error.message,
+          message,
           source: "inklecate"
         };
 
