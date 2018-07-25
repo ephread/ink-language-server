@@ -1,6 +1,6 @@
 {
   "name": "ink-language-server",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Implementation of the Language Server Protocol for inkle's Ink.",
   "main": "./lib/main.js",
   "keywords": [
