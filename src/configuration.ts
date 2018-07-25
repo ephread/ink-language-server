@@ -101,6 +101,14 @@ export function mergeSettings(
   };
 }
 
+export function getMonoPath(runThroughMono: string | boolean | undefined): string | undefined {
+  if (typeof runThroughMono === 'string') {
+    return runThroughMono;
+  } else {
+    return runThroughMono ? 'mono' : undefined;
+  }
+}
+
 /**
  * Returns the default path to inklecate, when running the server on macOS.
  */

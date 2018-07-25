@@ -8,7 +8,7 @@ import { IConnection, WorkspaceFolder } from "vscode-languageserver";
 export interface InkConfigurationSettings {
     mainStoryPath: string;
     inklecateExecutablePath: string;
-    runThroughMono: boolean;
+    runThroughMono: boolean | string;
 }
 
 export type PartialInkConfigurationSettings = Partial<InkConfigurationSettings>;

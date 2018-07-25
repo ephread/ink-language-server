@@ -22,17 +22,11 @@ import {
   RuntimeChoice
 } from "./types";
 
-import {
-  escapeForRegExp,
-} from "./utils";
+import { escapeForRegExp } from "./utils";
 
-import {
-  determinePlatform,
-  getDefaultSettings,
-  mergeSettings
-} from "./configuration";
+import { determinePlatform, getDefaultSettings, getMonoPath, mergeSettings } from "./configuration";
 
-import { StoryRenderer } from './story-renderer';
+import { StoryRenderer } from "./story-renderer";
 
 /* Constants */
 /******************************************************************************/
@@ -153,29 +147,28 @@ export function compileProject(
 
   const mainStoryTempPath = Path.join(tempDir, mergedSettings.mainStoryPath);
 
-  // Though checking these beforehand is subjected to race conditions, it's useful as it'll
-  // give the user a hint about what may be going wrong.
-  Fs.access(mergedSettings.inklecateExecutablePath, Fs.constants.X_OK)
-    .catch(error => {
-      const inklecateErrorMessage = `'inklecatePath' (${
-        mergedSettings.inklecateExecutablePath
-      }) is not executable.`;
-      logger.log(`${inklecateErrorMessage} - ${error.message}`);
-      logger.showErrorMessage(inklecateErrorMessage);
-    })
-    .then(() => {
-      return Fs.access(mainStoryTempPath, Fs.constants.R_OK);
-    })
-    .catch(error => {
-      const storyErrorMessage = `'mainStoryPath' (${
-        mergedSettings.mainStoryPath
-      }) is not readable.`;
-      logger.log(`${storyErrorMessage} - ${error.message}`);
-      logger.showErrorMessage(storyErrorMessage);
-    })
-    .then(() => {
-      spawnInklecate(mergedSettings, mainStoryTempPath, inkWorkspace, logger, storyRenderer, compileCallback);
-    });
+  testThatInklecateIsExecutable(mergedSettings, logger, mainStoryTempPath).then(() => {
+    spawnInklecate(
+      mergedSettings,
+      mainStoryTempPath,
+      inkWorkspace,
+      logger,
+      storyRenderer,
+      compileCallback
+    );
+  });
+}
+
+export function chooseOption(index: number) {
+  if (inklecateProcess) {
+    inklecateProcess.stdin.write(`${index}\n`);
+  }
+}
+
+export function killInklecate() {
+  if (inklecateProcess) {
+    inklecateProcess.kill();
+  }
 }
 
 /**
@@ -196,18 +189,19 @@ function spawnInklecate(
   storyRenderer: StoryRenderer | undefined,
   compileCallback: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
 ) {
-  const command = settings.runThroughMono ? "mono" : settings.inklecateExecutablePath;
+  const monoPath = getMonoPath(settings.runThroughMono);
+  const command = monoPath ? monoPath : settings.inklecateExecutablePath;
   const outputStoryPath = `${mainStoryTempPath}.json`;
   let args: string[];
 
   if (storyRenderer) {
     args = settings.runThroughMono
-             ? [settings.inklecateExecutablePath, "-p", mainStoryTempPath]
-             : ["-p", mainStoryTempPath];
+      ? [settings.inklecateExecutablePath, "-p", mainStoryTempPath]
+      : ["-p", mainStoryTempPath];
   } else {
     args = settings.runThroughMono
-             ? [settings.inklecateExecutablePath, "-o", outputStoryPath, mainStoryTempPath]
-             : ["-o", outputStoryPath, mainStoryTempPath];
+      ? [settings.inklecateExecutablePath, "-o", outputStoryPath, mainStoryTempPath]
+      : ["-o", outputStoryPath, mainStoryTempPath];
   }
 
   inklecateProcess = ChildProcess.spawn(command, args, {
@@ -273,7 +267,9 @@ function spawnInklecate(
   });
 
   inklecateProcess.stdout.on("close", () => {
-    if (storyRenderer) { storyRenderer.showEndOfStory(); }
+    if (storyRenderer) {
+      storyRenderer.showEndOfStory();
+    }
     compileCallback(inkWorkspace, outputStoryPath, errors);
   });
 
@@ -309,7 +305,9 @@ function parseErrorsOrRenderStory(
     const trimmedLine = line.trim();
 
     const choiceMatches = trimmedLine.match(/^(\d+):\s*(.*)/);
-    const errorMatches = trimmedLine.match(/^(ERROR|WARNING|RUNTIME ERROR|RUNTIME WARNING|TODO): ('([^']+)' )?line (\d+): (.+)/);
+    const errorMatches = trimmedLine.match(
+      /^(ERROR|WARNING|RUNTIME ERROR|RUNTIME WARNING|TODO): ('([^']+)' )?line (\d+): (.+)/
+    );
     const tagMatches = trimmedLine.match(/^(# tags:) (.+)/);
     const promptMatches = trimmedLine.match(/^\?>/);
     const endOfStoryMatches = trimmedLine.match(/^--- End of story ---/);
@@ -325,7 +323,11 @@ function parseErrorsOrRenderStory(
       if (errorType) {
         if (errorType === InkErrorType.RuntimeError || errorType === InkErrorType.RuntimeWarning) {
           if (storyRenderer) {
-            storyRenderer.reportError(`${errorType} while playing the story: ${errorMatches[5]} (in '${path}' at line ${parseInt(errorMatches[4])})`);
+            storyRenderer.reportError(
+              `${errorType} while playing the story: ${
+                errorMatches[5]
+              } (in '${path}' at line ${parseInt(errorMatches[4])})`
+            );
           }
         } else {
           inkErrors.push({
@@ -351,25 +353,53 @@ function parseErrorsOrRenderStory(
         storyRenderer.showChoice(choice);
       }
     } else if (promptMatches) {
-      if (storyRenderer) { storyRenderer.showPrompt(); }
+      if (storyRenderer) {
+        storyRenderer.showPrompt();
+      }
     } else if (endOfStoryMatches) {
-      if (storyRenderer) { storyRenderer.showEndOfStory(); }
+      if (storyRenderer) {
+        storyRenderer.showEndOfStory();
+      }
     } else if (line.length > 0) {
-      if (storyRenderer) { storyRenderer.showText(line); }
+      if (storyRenderer) {
+        storyRenderer.showText(line);
+      }
     }
   }
 
   return inkErrors;
 }
 
-export function chooseOption(index: number) {
-  if (inklecateProcess) {
-    inklecateProcess.stdin.write(`${index}\n`);
-  }
-}
+function testThatInklecateIsExecutable(
+  mergedSettings: InkConfigurationSettings,
+  logger: IConnectionLogger,
+  storyPath: string
+): Thenable<void> {
 
-export function killInklecate() {
-  if (inklecateProcess) {
-    inklecateProcess.kill();
+  const handleStoryAccessError = (error: any) => {
+    const storyErrorMessage = `'mainStoryPath' (${
+      mergedSettings.mainStoryPath
+    }) is not readable.`;
+    logger.log(`${storyErrorMessage} - ${error.message}`);
+    logger.showErrorMessage(storyErrorMessage);
+  };
+
+  // Though checking these beforehand is subjected to race conditions, it's useful as it'll
+  // give the user a hint about what may be going wrong.
+  if (mergedSettings.runThroughMono) {
+    return Fs.access(storyPath, Fs.constants.R_OK).catch(handleStoryAccessError);
+  } else {
+    return Fs.access(mergedSettings.inklecateExecutablePath, Fs.constants.X_OK)
+    .catch(error => {
+      const inklecateErrorMessage = `'inklecatePath' (${
+        mergedSettings.inklecateExecutablePath
+      }) is not executable.`;
+      logger.log(`${inklecateErrorMessage} - ${error.message}`);
+      logger.showErrorMessage(inklecateErrorMessage);
+    })
+    .then(() => {
+      return Fs.access(storyPath, Fs.constants.R_OK);
+    })
+    .catch(handleStoryAccessError);
   }
 }

@@ -28,9 +28,9 @@ import {
   DidCompileStoryParams,
   InkConnectionLogger,
   InkError,
+  InkErrorType,
   InkWorkspace,
   PartialInkConfigurationSettings,
-  InkErrorType
 } from "./types";
 
 import {
