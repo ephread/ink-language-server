@@ -170,5 +170,7 @@ export function checkPlatformAndDownloadBinaryDependency(connection: IConnection
   } else if (!isRunningOnWindows()) {
     connection.log(messages.unsupportedPlatform);
     callback(true);
+  } else {
+    callback(true);
   }
 }
