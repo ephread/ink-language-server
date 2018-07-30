@@ -8,7 +8,7 @@ import * as Os from "os";
 import * as Path from "path";
 import * as Uuid from "uuid/v4";
 
-import Uri from "vscode-uri/lib/umd";
+import Uri from "vscode-uri";
 
 import { TextDocument, WorkspaceFolder } from "vscode-languageserver";
 import {
@@ -21,8 +21,6 @@ import {
   Platform,
   RuntimeChoice
 } from "./types";
-
-import { escapeForRegExp } from "./utils";
 
 import { determinePlatform, getDefaultSettings, getMonoPath, mergeSettings } from "./configuration";
 
@@ -51,7 +49,7 @@ export function prepareTempDirectoryForCompilation(
   logger: IConnectionLogger,
   callback: (tempDirectory: string | undefined) => void
 ) {
-  logger.log(`Creating temporary compile directory for: ${workspaceFolder.name}`);
+  logger.console.info(`Creating temporary compilation directory for: ${workspaceFolder.name}`);
 
   const tempDirectory = Path.join(Os.tmpdir(), Uuid());
   const workspacePath = Uri.parse(workspaceFolder.uri).fsPath;
@@ -59,7 +57,7 @@ export function prepareTempDirectoryForCompilation(
   // Make the temporary directory and copy the ink files in it.
   Fs.mkdir(tempDirectory, mkDirError => {
     if (mkDirError) {
-      logger.log(`Could not create temporary compile directory: ${mkDirError.message}`);
+      logger.console.error(`Could not create temporary compilation directory: ${mkDirError.message}`);
       callback(undefined);
     } else {
       Fs.copy(
@@ -72,7 +70,7 @@ export function prepareTempDirectoryForCompilation(
               const isInk = INK_EXTENSIONS.indexOf(src.split(".").pop() || "") > -1;
               return isDir || isInk;
             } catch (error) {
-              logger.log(
+              logger.console.warn(
                 `WARNING: File '${src}' doesn't exist and will be ignored. - ${error.message}`
               );
               return false;
@@ -81,7 +79,7 @@ export function prepareTempDirectoryForCompilation(
         },
         copyError => {
           if (copyError) {
-            logger.log(`Could not copy files: ${copyError.message}`);
+            logger.console.error(`Could not copy files: ${copyError.message}`);
             callback(undefined);
           } else {
             callback(tempDirectory);
@@ -90,6 +88,43 @@ export function prepareTempDirectoryForCompilation(
       );
     }
   });
+}
+
+export async function copyNewlyCreatedFile(
+  fileUri: string,
+  workspace: InkWorkspace,
+  logger: IConnectionLogger,
+) {
+  if (!workspace.temporaryCompilationDirectory) {
+    return;
+  }
+
+  const workspaceFolderPath = Uri.parse(workspace.folder.uri).fsPath;
+  const filePath = Uri.parse(fileUri).fsPath;
+  const basename = Path.basename(filePath);
+
+  const relativeFilePath = Path.relative(workspaceFolderPath, filePath);
+  const relativeParentDirectoryPath = Path.dirname(relativeFilePath);
+
+  const temporaryDirectoryPath = Path.join(
+    workspace.temporaryCompilationDirectory,
+    relativeParentDirectoryPath
+  );
+  const temporaryFilePath = Path.join(workspace.temporaryCompilationDirectory, relativeFilePath);
+
+  const erroMessage = `Could not compile the new file (${basename}) – please see the log for more details`;
+  Fs.mkdirp(temporaryDirectoryPath)
+    .catch(error => {
+      logger.console.error(`Could not create new file in the compilation directory: ${error}`);
+      logger.showErrorMessage(erroMessage, false);
+    })
+    .then(() => {
+      return Fs.copy(filePath, temporaryFilePath);
+    })
+    .catch(error => {
+      logger.console.error(`Could not create new file in the compilation directory: ${error}`);
+      logger.showErrorMessage(erroMessage, false);
+    });
 }
 
 /**
@@ -107,7 +142,7 @@ export function updateFile(
   callback: (error: Error) => void
 ) {
   if (!workspace.folder || !workspace.temporaryCompilationDirectory) {
-    logger.log(`Could not update file: ${document.uri}`);
+    callback(new Error(`Could not update file: ${document.uri}`));
     return;
   }
 
@@ -115,11 +150,16 @@ export function updateFile(
   const documentContent = document.getText();
   const path = Uri.parse(document.uri).fsPath;
 
-  const regex = new RegExp(`^${escapeForRegExp(workspacePath)}`);
-  const relativePath = path.replace(regex, "");
+  const relativePath = Path.relative(workspacePath, path);
   const fullPath = Path.join(workspace.temporaryCompilationDirectory, relativePath);
 
-  Fs.writeFile(fullPath, documentContent, callback);
+  Fs.mkdirp(Path.dirname(fullPath))
+    .catch(error => {
+      callback(error);
+    })
+    .then(() => {
+      Fs.writeFile(fullPath, documentContent, callback);
+    });
 }
 
 /**
@@ -139,7 +179,7 @@ export function compileProject(
 ) {
   const tempDir = inkWorkspace.temporaryCompilationDirectory;
   if (!tempDir) {
-    logger.log(`Temporary directory for ${inkWorkspace.folder.name} is \`undefined\`, ignoring…`);
+    logger.console.warn(`Temporary directory for ${inkWorkspace.folder.name} is \`undefined\`, ignoring…`);
     return;
   }
 
@@ -176,7 +216,7 @@ export function killInklecate() {
  *
  * @param inklecatePath the path to the inklecate executable.
  * @param mainStoryPath the path to the main ink file (in the client workspace).
- * @param mainStoryTempPath the path to the main ink file (in the temporary compile directory).
+ * @param mainStoryTempPath the path to the main ink file (in the temporary compilation directory).
  * @param inkWorkspace the workspace to compile.
  * @param connection the client connection.
  * @param completion the callback to call upon completion.
@@ -230,9 +270,12 @@ function spawnInklecate(
         possibleReasons.push(".NET is likely missing");
     }
 
-    logger.log(`${inklecateMessage} ${possibleReasons.join(" or ")}. - ${error.message}`);
+    const plateformName = Platform.name(platform);
+
+    logger.console.error(`Inklecate spawn error (platform: ${plateformName}) - ${error.message}`);
     logger.showErrorMessage(
-      `${inklecateMessage} ${possibleReasons.join(" or ")}. Please see the log for more details.`
+      `${inklecateMessage} ${possibleReasons.join(" or ")}. Please see the log for more details.`,
+      false
     );
   });
 
@@ -247,8 +290,8 @@ function spawnInklecate(
 
       if (text.length > 0) {
         const inklecateMessage = "Inklecate returned an error, see the log for more details.";
-        logger.log(`${inklecateMessage}: ${text}`);
-        logger.showErrorMessage(inklecateMessage);
+        logger.console.error(`${inklecateMessage}: ${text}`);
+        logger.showErrorMessage(inklecateMessage, false);
       }
     }
   });
@@ -375,13 +418,10 @@ function testThatInklecateIsExecutable(
   logger: IConnectionLogger,
   storyPath: string
 ): Thenable<void> {
-
   const handleStoryAccessError = (error: any) => {
-    const storyErrorMessage = `'mainStoryPath' (${
-      mergedSettings.mainStoryPath
-    }) is not readable.`;
-    logger.log(`${storyErrorMessage} - ${error.message}`);
-    logger.showErrorMessage(storyErrorMessage);
+    const storyErrorMessage = `'mainStoryPath' (${mergedSettings.mainStoryPath}) is not readable.`;
+    logger.console.error(`${storyErrorMessage} - ${error.message}`);
+    logger.showErrorMessage(storyErrorMessage, false);
   };
 
   // Though checking these beforehand is subjected to race conditions, it's useful as it'll
@@ -390,16 +430,16 @@ function testThatInklecateIsExecutable(
     return Fs.access(storyPath, Fs.constants.R_OK).catch(handleStoryAccessError);
   } else {
     return Fs.access(mergedSettings.inklecateExecutablePath, Fs.constants.X_OK)
-    .catch(error => {
-      const inklecateErrorMessage = `'inklecatePath' (${
-        mergedSettings.inklecateExecutablePath
-      }) is not executable.`;
-      logger.log(`${inklecateErrorMessage} - ${error.message}`);
-      logger.showErrorMessage(inklecateErrorMessage);
-    })
-    .then(() => {
-      return Fs.access(storyPath, Fs.constants.R_OK);
-    })
-    .catch(handleStoryAccessError);
+      .catch(error => {
+        const inklecateErrorMessage = `'inklecatePath' (${
+          mergedSettings.inklecateExecutablePath
+        }) is not executable.`;
+        logger.console.error(`${inklecateErrorMessage} - ${error.message}`);
+        logger.showErrorMessage(inklecateErrorMessage, false);
+      })
+      .then(() => {
+        return Fs.access(storyPath, Fs.constants.R_OK);
+      })
+      .catch(handleStoryAccessError);
   }
 }

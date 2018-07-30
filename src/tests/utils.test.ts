@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 // See LICENSE in the project root for license information.
 
-import { DiagnosticSeverity } from "vscode-languageserver/lib/main";
+import { DiagnosticSeverity } from "vscode-languageserver";
 
 import { InkErrorType } from "../types";
 

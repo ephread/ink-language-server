@@ -7,6 +7,7 @@ import {
   Diagnostic,
   DidChangeConfigurationNotification,
   ExecuteCommandParams,
+  FileChangeType,
   InitializeParams,
   ProposedFeatures,
   TextDocument,
@@ -15,9 +16,12 @@ import {
 
 import Uri from "vscode-uri";
 
+import * as Path from "path";
+
 import {
   chooseOption,
   compileProject,
+  copyNewlyCreatedFile,
   killInklecate,
   prepareTempDirectoryForCompilation,
   updateFile
@@ -41,7 +45,6 @@ import {
 import {
   Commands,
   CompilationNotification,
-  RuntimeNotification
 } from "./identifiers";
 
 import { getDiagnosticSeverityFromInkErrorType, isFilePathChildOfDirPath } from "./utils";
@@ -212,25 +215,28 @@ async function initializeInkWorkspaces() {
 
   if (workspaceFolders) {
     for (const workspaceFolder of workspaceFolders) {
-      let workspace = workspaceDirectories.get(workspaceFolder.uri);
-
-      if (!workspace) {
-        workspace = {
-          folder: workspaceFolder
-        };
-
-        workspaceDirectories.set(workspaceFolder.uri, workspace);
-      }
-
       prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDir => {
+        logger.console.info(`Temporary compilation directory successfully created at: ${tempDir}`);
         if (tempDir) {
-          (workspace as InkWorkspace).temporaryCompilationDirectory = tempDir;
+          let workspace = workspaceDirectories.get(workspaceFolder.uri);
+
+          if (!workspace) {
+            workspace = {
+              folder: workspaceFolder
+            };
+
+            workspaceDirectories.set(workspaceFolder.uri, workspace);
+          }
+
+          workspace.temporaryCompilationDirectory = tempDir;
         } else {
           reportServerError();
         }
       });
     }
   }
+
+  canCompile = true;
 }
 
 /**
@@ -240,21 +246,35 @@ async function initializeInkWorkspaces() {
  * @param document the document to update.
  */
 async function updateDocumentAndCompileWorkspace(document: TextDocument) {
-  if (!canCompile) { return; }
-
-  const workspace = getInkWorkspaceOfDocument(document);
-  if (!workspace) {
+  if (!canCompile) {
+    logger.console.info("Awaiting inklecate's availability before attempting a compilation…");
     return;
+  }
+
+  let workspace = getInkWorkspaceOfDocument(document);
+  if (!workspace) {
+    logger.console.warn("The temporary workspace does not exist, attempting to restore…");
+    await initializeInkWorkspaces();
+
+    workspace = getInkWorkspaceOfDocument(document);
+
+    if (!workspace) {
+      const basename = Path.basename(document.uri);
+      const message =
+        `The temporary workspace is missing or ${basename} is not in the workspace.`;
+        logger.console.error(message);
+      return;
+    }
   }
 
   const settings = await fetchDocumentConfigurationSettings(document);
 
   updateFile(document, workspace, logger, error => {
     if (error) {
-      connection.console.log(`Could not update '${document.uri}', ${error.message}`);
+      logger.console.error(`Could not update '${document.uri}', ${error.message}`);
       reportServerError();
     } else {
-      compileProject(settings, workspace, logger, undefined, notifyClientAndPushDiagnostics);
+      compileProject(settings, workspace!, logger, undefined, notifyClientAndPushDiagnostics);
     }
   });
 }
@@ -268,7 +288,10 @@ async function updateDocumentAndCompileWorkspace(document: TextDocument) {
  * @param workspace the ink workspace to compile.
  */
 async function executeCompileCommand(documentUri: string, workspace: InkWorkspace, play: boolean = false) {
-  if (!canCompile) { return; }
+  if (!canCompile) {
+    logger.console.info("Awaiting inklecate's availability before attempting a compilation…");
+    return;
+  }
 
   const settings = await fetchDocumentConfigurationSettings(documentUri);
   const storyRenderer = play ? new StoryRenderer(connection) : undefined;
@@ -277,16 +300,17 @@ async function executeCompileCommand(documentUri: string, workspace: InkWorkspac
 }
 
 function reportServerError() {
-  connection.window.showErrorMessage(
+  logger.showErrorMessage(
     "An unrecoverable error occured with Ink Language Server. " +
-      "Please see the logs for more information."
+    "Please see the logs for more information.",
+    false
   );
 }
 
 /* Connection callbacks */
 /******************************************************************************/
 connection.onInitialize((params: InitializeParams) => {
-  connection.console.log("Server Initialized");
+  logger.console.info("Server Initialized");
 
   const clientCapabilities = params.capabilities;
 
@@ -324,16 +348,26 @@ connection.onInitialized(() => {
     });
   }
 
-  initializeInkWorkspaces();
-
   checkPlatformAndDownloadBinaryDependency(logger, (success) => {
     flagDefaultSettingsAsDirty();
-    canCompile = success;
+    initializeInkWorkspaces();
   });
 });
 
-connection.onDidChangeConfiguration(change => {
+connection.onDidChangeConfiguration(() => {
   documentSettings.clear();
+});
+
+connection.onDidChangeWatchedFiles(params => {
+  for (const change of params.changes) {
+    if (change.type === FileChangeType.Deleted) {
+
+      const workspace = getInkWorkspaceOfFilePath(change.uri);
+      if (workspace) {
+        copyNewlyCreatedFile(change.uri, workspace, logger);
+      }
+    }
+  }
 });
 
 connection.onExecuteCommand(
@@ -370,34 +404,36 @@ connection.listen();
 
 
 function runCompileStoryCommand(params: ExecuteCommandParams) {
-  connection.console.log('Received compilation command.');
+  logger.console.info('Received compilation command.');
 
-  const pathAndWorkspace = getDocumentPathFromParams(params);
+  getDocumentPathFromParams(params).then((pathAndWorkspace) => {
+    executeCompileCommand(pathAndWorkspace.documentPath, pathAndWorkspace.workspace);
+  }, (errorMessage) => {
+    const message = `The project could not be compiled: ${errorMessage}`;
+    logger.showErrorMessage(message);
+  });
 
-  if (!pathAndWorkspace) {
-    return undefined;
-  }
-
-  executeCompileCommand(pathAndWorkspace.documentPath, pathAndWorkspace.workspace);
+  return true;
 }
 
 function runPlayStoryCommand(params: ExecuteCommandParams) {
-  connection.console.log('Received play story command.');
+  logger.console.info('Received play story command.');
 
-  const pathAndWorkspace = getDocumentPathFromParams(params);
+  getDocumentPathFromParams(params).then((pathAndWorkspace) => {
+    executeCompileCommand(pathAndWorkspace.documentPath, pathAndWorkspace.workspace, true);
+  }, (errorMessage) => {
+    const message = `The project could not be compiled: ${errorMessage}`;
+    logger.showErrorMessage(message);
+  });
 
-  if (!pathAndWorkspace) {
-    return undefined;
-  }
-
-  executeCompileCommand(pathAndWorkspace.documentPath, pathAndWorkspace.workspace, true);
+  return true;
 }
 
 function runSelectOptionCommand(params: ExecuteCommandParams) {
-  connection.console.log('Received select option command.');
+  logger.console.info('Received select option command.');
 
   if (!params.arguments || !params.arguments[0]) {
-    connection.window.showErrorMessage(`${Commands.selectOption} error: the command was called with no arguments.`);
+    logger.showErrorMessage(`${Commands.selectOption} error: the command was called with no arguments.`);
     return;
   }
 
@@ -407,12 +443,12 @@ function runSelectOptionCommand(params: ExecuteCommandParams) {
 }
 
 function runKillInklecateCommand() {
-  connection.console.log('Received kill inklecate command.');
+  logger.console.info('Received kill inklecate command.');
 
   killInklecate();
 }
 
-function getDocumentPathFromParams(params: ExecuteCommandParams): DocumentPathAndWorkspace | undefined {
+async function getDocumentPathFromParams(params: ExecuteCommandParams): Promise<DocumentPathAndWorkspace> {
   let fileURI: string;
   if (!params.arguments || params.arguments.length < 1) {
     fileURI = getDefaultSettings().mainStoryPath;
@@ -421,14 +457,25 @@ function getDocumentPathFromParams(params: ExecuteCommandParams): DocumentPathAn
   }
 
   const documentPath = Uri.parse(fileURI).fsPath;
-  const workspace = getInkWorkspaceOfFilePath(documentPath);
+  const basename = Path.basename(documentPath);
+  let workspace = getInkWorkspaceOfFilePath(documentPath);
 
   if (!workspace) {
-    connection.console.log("Could not retrieve the workspace of the given file.");
-    return undefined;
+    logger.console.warn("The temporary workspace does not exist, attempting to restore…");
+    await initializeInkWorkspaces();
+
+    workspace = getInkWorkspaceOfFilePath(documentPath);
+
+    if (!workspace) {
+      logger.console.error("The temporary workspace is still missing, aborting command.");
+      const message =
+        `The temporary workspace is missing or ${basename} is not in the workspace.`;
+
+      return Promise.reject(message);
+    }
   }
 
-  return { documentPath, workspace };
+  return Promise.resolve({ documentPath, workspace });
 }
 
 interface DocumentPathAndWorkspace {

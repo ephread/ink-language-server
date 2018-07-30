@@ -57,9 +57,9 @@ The server supports three configuration settings.
 
 - `ink.mainStoryPath` is path to the main ink file, used by Inklecate to build the story. This setting falls back to `./main.ink`.
 - `ink.inklecateExecutablePath` path to the inklecate, you would like to use if you don't want to use the bundled one. If inklecate is accessible in `$PATH`, you can just provide `inklecate`.
-- `ink.runThroughMono` by default, this setting is `false`. You can force the server to use Mono by setting it to `true`.
+- `ink.runThroughMono` by default, this setting is `false`. You can force the server to use Mono by setting it to `true`. You can also specify an absolute path to your custom `mono` executable.
 
-#### Custom notifications from the server
+#### Compilation
 After every successful compilation, the server will post a notification named `inkWorkspace/didCompileStory`, with the following parameters:
 
 ```typescript
@@ -72,20 +72,54 @@ export interface SaveCompiledStoryParams {
 }
 ```
 
-You can take advantage of this feature to keep track of compiled stories and, for instance, provide
-a preview mechanism.
-
 The type is exposed by the package, so you can simply import it in your code:
 
 ```typescript
 import { DidCompileStoryParams } from 'ink-language-server';
 ```
 
-#### Exposed commands
-The server expose the `compileStory` command, which can be use to trigger a full compilation. It
+The server also expose the `compileStory` command, which can be use to trigger a full compilation. It
 takes a single parameter: a URI, which will most likely be the current file in the editor.
 
 Internally, this URI will be used to infer which workspace/story the server should compile.
+
+#### Preview
+
+The server can take advantage of inklecate's play mode to provide an interactive preview. The client
+can start a preview by calling the `play-story` command; during the story run, numerous
+notifications will be sent:
+
+- `inkRuntime/text` – the client should display the content as text;
+- `inkRuntime/tag` – the client should display the content as tags;
+- `inkRuntime/choice` – the client should display the content as a choice option;
+- `inkRuntime/prompt` – the client should ask the user to select previoulsy displayed options;
+- `inkRuntime/endOfStory` – the client should indicate that the story ended;
+- `inkRuntime/error` – the client should prominetly display the runtime error.
+
+The notifications sent with parameters are indicated below:
+
+```typescript
+export interface RuntimeTextParams {
+  text: string;
+}
+
+export interface RuntimeTagParams {
+  tags: string[];
+}
+
+export interface RuntimeChoicesParams {
+  choice: RuntimeChoice;
+}
+
+export interface RuntimeErrorParams {
+  error: string;
+}
+```
+Theses types are exposed by the package as well.
+
+After receiving `inkRuntime/prompt` and gathering input from the user, the client can send the
+selected choice back to the server by calling the `select-option`, with the index of the selected
+option as parameter. The story will then continue to unfold until `inkRuntime/endOfStory` is sent.
 
 ## Inklecate
 

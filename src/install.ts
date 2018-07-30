@@ -121,7 +121,7 @@ function downloadDependency(
 /**
  *
  */
-export function checkPlatformAndDownloadBinaryDependency(connection: IConnectionLogger, callback: (success: boolean) => void) {
+export function checkPlatformAndDownloadBinaryDependency(logger: IConnectionLogger, callback: (success: boolean) => void) {
   if (isRunningOnMac()) {
     // Running on a mac.
     const bundleName = optionalMacOsBundleName();
@@ -134,31 +134,31 @@ export function checkPlatformAndDownloadBinaryDependency(connection: IConnection
 
       Fs.stat(Path.join(vendorDir, 'inklecate'), (statError, stat) => {
         if (stat) {
-          connection.log(`Running on macOS, inklecate has already been downloaded.`);
+          logger.console.info(`Running on macOS, inklecate has already been downloaded.`);
           callback(true);
         } else {
-          connection.log(`Running on macOS, fetching inkeclate from… ${url}`);
+          logger.console.info(`Running on macOS, fetching inkeclate from… ${url}`);
 
           downloadDependency(url, filePath, error => {
             if (error) {
               if (progress) {
                 progress.stop();
               }
-              connection.log(`${error}`);
-              connection.log(messages.installError);
+              logger.console.error(`${error}`);
+              logger.console.error(messages.installError);
               callback(false);
             } else {
               Extract(filePath, { dir: vendorDir }, extractError => {
                 if (extractError) {
-                  connection.log(extractError.message);
+                  logger.console.error(extractError.message);
                   callback(false);
                 } else {
                   Fs.unlink(filePath, unLinkError => {
                     if (unLinkError) {
-                      connection.log(`${unLinkError}`);
+                      logger.console.error(`${unLinkError}`);
                     }
                   });
-                  connection.log("Inklecate successfully installed!");
+                  logger.console.error("Inklecate successfully installed!");
                   callback(true);
                 }
               });
@@ -168,7 +168,7 @@ export function checkPlatformAndDownloadBinaryDependency(connection: IConnection
       });
     }
   } else if (!isRunningOnWindows()) {
-    connection.log(messages.unsupportedPlatform);
+    logger.console.warn(messages.unsupportedPlatform);
     callback(true);
   } else {
     callback(true);

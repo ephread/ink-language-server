@@ -4,7 +4,7 @@
 
 import * as Path from "path";
 
-import { DiagnosticSeverity } from "vscode-languageserver/lib/main";
+import { DiagnosticSeverity } from "vscode-languageserver";
 
 import { InkErrorType } from "./types";
 
@@ -37,13 +37,4 @@ export function getDiagnosticSeverityFromInkErrorType(type: InkErrorType): Diagn
     case InkErrorType.Todo:
       return DiagnosticSeverity.Information;
   }
-}
-
-/**
- * Returns given string with escaped characters, for use as a regular expression pattern.
- *
- * @param source the string to escape
- */
-export function escapeForRegExp(source: string): string {
-  return source.replace(/[\\^$*+?.()|[\]{}]/g, '\\$&');
 }
