@@ -1,6 +1,6 @@
 {
   "name": "ink-language-server",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Implementation of the Language Server Protocol for inkle's Ink.",
   "main": "./lib/main.js",
   "keywords": [
@@ -12,7 +12,7 @@
     "language"
   ],
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "prepublishOnly": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "postinstall": "node ./lib/scripts/postinstall",

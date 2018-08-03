@@ -10,9 +10,9 @@ cache:
 before_install:
   - npm install -g npm typescript
 
-install: 
+install:
   - npm install --ignore-scripts
-  - npm run vscode:prepublish
+  - npm run prepublishOnly
   - npm run postinstall
 
 script:
