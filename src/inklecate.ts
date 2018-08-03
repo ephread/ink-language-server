@@ -20,15 +20,17 @@ import {
   PartialInkConfigurationSettings,
   Platform,
   RuntimeChoice
-} from "./types";
+} from "./types/types";
 
-import { determinePlatform, getDefaultSettings, getMonoPath, mergeSettings } from "./configuration";
+import { determinePlatform, getDefaultSettings, getMonoPath, mergeSettings } from "./helpers/configuration";
 
-import { StoryRenderer } from "./story-renderer";
+import StoryRenderer from "./helpers/Class/StoryRenderer";
+
+import DiagnosticManager from "./helpers/Class/DiagnosticManager";
+import { isInkFile } from './helpers/utils';
 
 /* Constants */
 /******************************************************************************/
-const INK_EXTENSIONS = ["ink", "ink2"];
 
 let inklecateProcess: ChildProcess.ChildProcess | undefined;
 
@@ -46,47 +48,40 @@ let inklecateProcess: ChildProcess.ChildProcess | undefined;
  */
 export function prepareTempDirectoryForCompilation(
   workspaceFolder: WorkspaceFolder,
-  logger: IConnectionLogger,
-  callback: (tempDirectory: string | undefined) => void
-) {
-  logger.console.info(`Creating temporary compilation directory for: ${workspaceFolder.name}`);
+  logger: IConnectionLogger
+): Promise<string | void> {
+  logger.console.info(`Creating temporary compilation directory for: '${workspaceFolder.name}'.`);
 
   const tempDirectory = Path.join(Os.tmpdir(), Uuid());
   const workspacePath = Uri.parse(workspaceFolder.uri).fsPath;
 
-  // Make the temporary directory and copy the ink files in it.
-  Fs.mkdir(tempDirectory, mkDirError => {
-    if (mkDirError) {
-      logger.console.error(`Could not create temporary compilation directory: ${mkDirError.message}`);
-      callback(undefined);
-    } else {
-      Fs.copy(
-        workspacePath,
-        tempDirectory,
-        {
-          filter: (src: string, dest: string) => {
-            try {
-              const isDir = Fs.lstatSync(src).isDirectory();
-              const isInk = INK_EXTENSIONS.indexOf(src.split(".").pop() || "") > -1;
-              return isDir || isInk;
-            } catch (error) {
-              logger.console.warn(
-                `WARNING: File '${src}' doesn't exist and will be ignored. - ${error.message}`
-              );
-              return false;
-            }
-          }
-        },
-        copyError => {
-          if (copyError) {
-            logger.console.error(`Could not copy files: ${copyError.message}`);
-            callback(undefined);
-          } else {
-            callback(tempDirectory);
-          }
+  return Fs.mkdir(tempDirectory).then(() => {
+    logger.console.info(`'${workspaceFolder.name}': Mirror directory created.`);
+
+    return Fs.copy(workspacePath, tempDirectory, {
+      filter: (src: string, dest: string) => {
+        try {
+          const isDir = Fs.lstatSync(src).isDirectory();
+          if (isDir) { return true; }
+
+          return isInkFile(src, false, logger);
+        } catch (error) {
+          logger.console.warn(
+            `File '${src}' doesn't exist and will be ignored. - ${error.message}`
+          );
+          return false;
         }
-      );
-    }
+      }
+    }).catch((error) => {
+      logger.console.error(`Could not copy files: ${error.message}`);
+      return Promise.reject(error);
+    });
+  }, (error) => {
+    logger.console.error(`Could not create temporary compilation directory: ${error.message}`);
+    return Promise.reject(error);
+  }).then(() => {
+    logger.console.info(`'${workspaceFolder.name}': File hierarchy copied.`);
+    return Promise.resolve(tempDirectory);
   });
 }
 
@@ -95,13 +90,20 @@ export async function copyNewlyCreatedFile(
   workspace: InkWorkspace,
   logger: IConnectionLogger,
 ) {
+  const filePath = Uri.parse(fileUri).fsPath;
+  const basename = Path.basename(filePath);
+
+  if (!isInkFile(filePath, true, logger)) { return; }
+
   if (!workspace.temporaryCompilationDirectory) {
+    logger.console.warn(`The temporary compilation directory is undefined, cannot copy ${fileUri}.`);
+    const message = `The server could not process '${filePath}'. ` +
+                    'As subsequent compilations may fail, you should reload your project.';
+    logger.showWarningMessage(message, true);
     return;
   }
 
   const workspaceFolderPath = Uri.parse(workspace.folder.uri).fsPath;
-  const filePath = Uri.parse(fileUri).fsPath;
-  const basename = Path.basename(filePath);
 
   const relativeFilePath = Path.relative(workspaceFolderPath, filePath);
   const relativeParentDirectoryPath = Path.dirname(relativeFilePath);
@@ -115,14 +117,14 @@ export async function copyNewlyCreatedFile(
   const erroMessage = `Could not compile the new file (${basename}) – please see the log for more details`;
   Fs.mkdirp(temporaryDirectoryPath)
     .catch(error => {
-      logger.console.error(`Could not create new file in the compilation directory: ${error}`);
+      logger.console.error(`Could not create new file in the compilation directory: ${error.message}`);
       logger.showErrorMessage(erroMessage, false);
     })
     .then(() => {
       return Fs.copy(filePath, temporaryFilePath);
     })
     .catch(error => {
-      logger.console.error(`Could not create new file in the compilation directory: ${error}`);
+      logger.console.error(`Could not create new file in the compilation directory: ${error.message}`);
       logger.showErrorMessage(erroMessage, false);
     });
 }
@@ -175,7 +177,7 @@ export function compileProject(
   inkWorkspace: InkWorkspace,
   logger: IConnectionLogger,
   storyRenderer: StoryRenderer | undefined,
-  compileCallback: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
+  diagnosticManager: DiagnosticManager
 ) {
   const tempDir = inkWorkspace.temporaryCompilationDirectory;
   if (!tempDir) {
@@ -194,7 +196,7 @@ export function compileProject(
       inkWorkspace,
       logger,
       storyRenderer,
-      compileCallback
+      diagnosticManager
     );
   });
 }
@@ -227,7 +229,7 @@ function spawnInklecate(
   inkWorkspace: InkWorkspace,
   logger: IConnectionLogger,
   storyRenderer: StoryRenderer | undefined,
-  compileCallback: (inkWorkspace: InkWorkspace, outputStoryPath: string, errors: InkError[]) => void
+  diagnosticManager: DiagnosticManager
 ) {
   const monoPath = getMonoPath(settings.runThroughMono);
   const command = monoPath ? monoPath : settings.inklecateExecutablePath;
@@ -313,7 +315,7 @@ function spawnInklecate(
     if (storyRenderer) {
       storyRenderer.showEndOfStory();
     }
-    compileCallback(inkWorkspace, outputStoryPath, errors);
+    diagnosticManager.notifyClientAndPushDiagnostics(inkWorkspace, outputStoryPath, errors);
   });
 
   inklecateProcess.on("exit", () => {

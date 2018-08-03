@@ -8,7 +8,7 @@ import * as Fs from "fs";
 import * as Path from "path";
 import * as Request from "request";
 
-import { IConnectionLogger } from "./types";
+import { IConnectionLogger } from "../types/types";
 
 const INK_VERSION = '0.8.1';
 
@@ -129,7 +129,7 @@ export function checkPlatformAndDownloadBinaryDependency(logger: IConnectionLogg
 
     if (bundleName) {
       const url = `${urlpart}${bundleName}`;
-      const vendorDir = Path.join(__dirname, "../vendor/");
+      const vendorDir = Path.join(__dirname, "../../vendor/");
       const filePath = Path.join(vendorDir, bundleName);
 
       Fs.stat(Path.join(vendorDir, 'inklecate'), (statError, stat) => {
@@ -158,7 +158,7 @@ export function checkPlatformAndDownloadBinaryDependency(logger: IConnectionLogg
                       logger.console.error(`${unLinkError}`);
                     }
                   });
-                  logger.console.error("Inklecate successfully installed!");
+                  logger.console.info("Inklecate successfully installed!");
                   callback(true);
                 }
               });

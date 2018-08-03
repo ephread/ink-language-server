@@ -2,8 +2,8 @@
 // Licensed under the MIT License.
 // See LICENSE in the project root for license information.
 
-import { determinePlatform, mergeSettings } from "../configuration";
-import { InkConfigurationSettings, PartialInkConfigurationSettings, Platform } from "../types";
+import { determinePlatform, mergeSettings } from "../helpers/configuration";
+import { InkConfigurationSettings, PartialInkConfigurationSettings, Platform } from "../types/types";
 
 describe("determinePlatform", () => {
   beforeEach(() => {

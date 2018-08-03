@@ -4,12 +4,12 @@
 
 import { DiagnosticSeverity } from "vscode-languageserver";
 
-import { InkErrorType } from "../types";
+import { InkErrorType } from "../types/types";
 
 import {
   getDiagnosticSeverityFromInkErrorType,
   isFilePathChildOfDirPath,
-} from "../utils";
+} from "../helpers/utils";
 
 describe("isFilePathChildOfDirPath", () => {
   it("returns true when the given file is a child of the given directory", () => {

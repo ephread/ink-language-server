@@ -4,17 +4,19 @@
 
 import { IConnection } from 'vscode-languageserver';
 
-import { RuntimeNotification } from './identifiers';
-
+import { RuntimeNotification } from '../../types/identifiers';
 import {
   RuntimeChoice,
   RuntimeChoicesParams,
   RuntimeErrorParams,
   RuntimeTagParams,
   RuntimeTextParams,
-} from './types';
+} from '../../types/types';
 
-export class StoryRenderer {
+/**
+ * Renders a story. In the current context, it means notifying the client.
+ */
+export default class StoryRenderer {
   private connection: IConnection;
 
   constructor(connection: IConnection) {

@@ -9,6 +9,6 @@ export {
   RuntimeTagParams,
   RuntimeChoicesParams,
   RuntimeErrorParams
-} from './types';
+} from './types/types';
 
-export * from './identifiers';
+export * from './types/identifiers';

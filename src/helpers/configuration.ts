@@ -4,11 +4,12 @@
 
 import * as Fs from "fs-extra";
 import * as Path from "path";
+
 import {
   InkConfigurationSettings,
   PartialInkConfigurationSettings,
   Platform
-} from "./types";
+} from "../types/types";
 
 /**
  * The global settings, used when the `workspace/configuration` request is not supported
@@ -63,7 +64,7 @@ export function defaultInklecatePath(platform: Platform): string {
   if (platform === Platform.MacOs && isDefaultMacOsInklecateInstalled()) {
     return defaultMacInklecatePath();
   } else {
-    return Path.join(__dirname, "..", "vendor/inklecate.exe");
+    return Path.join(__dirname, "../..", "vendor/inklecate.exe");
   }
 }
 
@@ -113,7 +114,7 @@ export function getMonoPath(runThroughMono: string | boolean | undefined): strin
  * Returns the default path to inklecate, when running the server on macOS.
  */
 function defaultMacInklecatePath(): string {
-  return Path.join(__dirname, "..", "vendor/inklecate");
+  return Path.join(__dirname, "../..", "vendor/inklecate");
 }
 
 /**

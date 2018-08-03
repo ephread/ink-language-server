@@ -5,7 +5,7 @@
 // tslint:disable:max-classes-per-file
 // tslint:disable:no-namespace
 
-import { IConnection, WorkspaceFolder } from "vscode-languageserver";
+import { IConnection, WorkspaceFolder } from "vscode-languageserver/lib/main";
 
 /** Server configuration. */
 export interface InkConfigurationSettings {
@@ -65,6 +65,10 @@ export namespace Platform {
 export interface IConnectionLogger {
   console: IConsoleLogger;
   showErrorMessage(message: string, shouldLog: boolean): void;
+  showWarningMessage(message: string, shouldLog: boolean): void;
+  showInformationMessage(message: string, shouldLog: boolean): void;
+
+  reportServerError(): void;
 }
 
 export interface IConsoleLogger {
@@ -76,11 +80,14 @@ export interface IConsoleLogger {
 
 export class InkConnectionLogger implements IConnectionLogger {
   public console: IConsoleLogger;
-  private connection: IConnection;
 
-  constructor(connection: IConnection) {
+  private connection: IConnection;
+  private verbose: boolean = false;
+
+  constructor(connection: IConnection, verbose: boolean = true) {
     this.connection = connection;
-    this.console = new InkConsoleLogger(connection);
+    this.console = new InkConsoleLogger(connection, verbose);
+    this.verbose = verbose;
   }
 
   public showErrorMessage(message: string, shouldLog: boolean = true) {
@@ -90,13 +97,42 @@ export class InkConnectionLogger implements IConnectionLogger {
 
     this.connection.window.showErrorMessage(message);
   }
+
+  public showWarningMessage(message: string, shouldLog: boolean = true) {
+    if (shouldLog) {
+      this.connection.console.warn(message);
+    }
+
+    this.connection.window.showWarningMessage(message);
+  }
+
+  public showInformationMessage(message: string, shouldLog: boolean = true) {
+    if (shouldLog && this.verbose) {
+      this.connection.console.info(message);
+    }
+
+    this.connection.window.showInformationMessage(message);
+  }
+
+  /**
+   * Show a generic server error in the client.
+   */
+  public reportServerError() {
+    this.showErrorMessage(
+      "An unrecoverable error occured with Ink Language Server. " +
+      "Please see the logs for more information.",
+      false
+    );
+  }
 }
 
 export class InkConsoleLogger implements IConsoleLogger {
   private connection: IConnection;
+  private verbose: boolean = false;
 
-  constructor(connection: IConnection) {
+  constructor(connection: IConnection, verbose: boolean = true) {
     this.connection = connection;
+    this.verbose = verbose;
   }
 
   public error(message: string): void {
@@ -108,10 +144,12 @@ export class InkConsoleLogger implements IConsoleLogger {
   }
 
   public info(message: string): void {
+    if (!this.verbose) { return; }
     this.connection.console.info(message);
   }
 
   public log(message: string): void {
+    if (!this.verbose) { return; }
     this.connection.console.log(message);
   }
 }
@@ -140,6 +178,11 @@ export namespace InkErrorType {
         return undefined;
     }
   }
+}
+
+export interface DocumentPathAndWorkspace {
+  documentPath: string;
+  workspace: InkWorkspace;
 }
 
 export interface RuntimeChoice {

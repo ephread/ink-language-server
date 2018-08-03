@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 // See LICENSE in the project root for license information.
 
-import { InkErrorType } from "../types";
+import { InkErrorType } from "../types/types";
 
 describe("InkErrorType.parse", () => {
   it("returns the correct InkErrorType when the input is valid", () => {

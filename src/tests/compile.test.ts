@@ -4,12 +4,12 @@
 
 jest.mock("uuid/v4", () => () => "00000000-0000-0000-0000-000000000000");
 
-import { Position, Range, TextDocument, WorkspaceFolder } from "vscode-languageserver/lib/main";
+import { Position, Range, TextDocument, WorkspaceFolder } from "vscode-languageserver";
 
 import {
   IConnectionLogger,
   InkWorkspace
-} from "../types";
+} from "../types/types";
 
 import { prepareTempDirectoryForCompilation, updateFile } from "../inklecate";
 
@@ -17,7 +17,7 @@ import * as Fs from "fs";
 import * as FsExtra from "fs-extra";
 import * as Os from "os";
 import * as Path from "path";
-import Uri from "vscode-uri";
+import Uri from "vscode-uri/lib/umd";
 
 const defaultUuid = "00000000-0000-0000-0000-000000000000";
 
@@ -26,6 +26,9 @@ const compileTmpDirectory = Path.join(tmpDirectory, defaultUuid);
 const projectDirectory = Path.join(tmpDirectory, "ink-project");
 
 const showErrorMessage = jest.fn();
+const showWarningMessage = jest.fn();
+const showInformationMessage = jest.fn();
+const reportServerError = jest.fn();
 
 const consoleError = jest.fn();
 const consoleWarn = jest.fn();
@@ -39,7 +42,10 @@ const logger: IConnectionLogger = {
     info: consoleInfo,
     log: consoleLog
   },
-  showErrorMessage
+  showErrorMessage,
+  showWarningMessage,
+  showInformationMessage,
+  reportServerError
 };
 
 const workspaceFolder: WorkspaceFolder = {
@@ -54,33 +60,38 @@ describe("prepareTempDirectoryForCompilation", () => {
     FsExtra.removeSync(projectDirectory);
   });
 
-  it("calls the callback with undefined if the temp directory could not be created", done => {
+  it("reject the promise if the temp directory could not be created", done => {
     Fs.mkdirSync(compileTmpDirectory);
 
-    prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDirectory => {
-      expect(tempDirectory).toBe(undefined);
+    prepareTempDirectoryForCompilation(workspaceFolder, logger).then(() => {
+      fail('then() should not have been called.');
+    }).catch(() => {
       expect(consoleInfo.mock.calls.length).toBe(1);
       expect(consoleError.mock.calls.length).toBe(1);
       done();
     });
   });
 
-  it("calls the callback with undefined if the workspace directory doesn't exist", done => {
-    prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDirectory => {
-      expect(tempDirectory).toBe(undefined);
-      expect(consoleInfo.mock.calls.length).toBe(1);
+  it("reject the promise if the workspace directory doesn't exist", done => {
+    prepareTempDirectoryForCompilation(workspaceFolder, logger).then(() => {
+      fail('then() should not have been called.');
+      done();
+    }).catch(() => {
+      expect(consoleInfo.mock.calls.length).toBe(2);
       expect(consoleError.mock.calls.length).toBe(1);
       done();
     });
   });
 
-  it("calls the callback with undefined if some files could not be copied", done => {
+  it("reject the promise if some files could not be copied", done => {
     createFakeProject();
     Fs.chmodSync(Path.join(projectDirectory, "main.ink"), 0o000);
 
-    prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDirectory => {
-      expect(tempDirectory).toBe(undefined);
-      expect(consoleInfo.mock.calls.length).toBe(1);
+    prepareTempDirectoryForCompilation(workspaceFolder, logger).then(() => {
+      fail('then() should not have been called.');
+      done();
+    }).catch(() => {
+      expect(consoleInfo.mock.calls.length).toBe(2);
       expect(consoleError.mock.calls.length).toBe(1);
       Fs.chmodSync(Path.join(projectDirectory, "main.ink"), 0o700);
       done();
@@ -90,9 +101,9 @@ describe("prepareTempDirectoryForCompilation", () => {
   it("copies correctly", done => {
     createFakeProject();
 
-    prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDirectory => {
+    prepareTempDirectoryForCompilation(workspaceFolder, logger).then((tempDirectory) => {
       expect(tempDirectory).toBe(compileTmpDirectory);
-      expect(consoleInfo.mock.calls.length).toBe(1);
+      expect(consoleInfo.mock.calls.length).toBe(3);
 
       expect(() => {
         Fs.statSync(Path.join(compileTmpDirectory, "main.ink"));
@@ -100,13 +111,16 @@ describe("prepareTempDirectoryForCompilation", () => {
       }).not.toThrow();
 
       done();
+    }).catch(() => {
+      fail('catch() should not have been called.');
+      done();
     });
   });
 
   it("copies only ink files", done => {
     createFakeProject();
 
-    prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDirectory => {
+    prepareTempDirectoryForCompilation(workspaceFolder, logger).then((tempDirectory) => {
       expect(() => {
         Fs.statSync(Path.join(compileTmpDirectory, "main.ink"));
         Fs.statSync(Path.join(compileTmpDirectory, "story/story.ink2"));
@@ -117,9 +131,16 @@ describe("prepareTempDirectoryForCompilation", () => {
       }).toThrow();
 
       done();
+    }).catch(() => {
+      fail('catch() should not have been called.');
+      done();
     });
   });
 });
+
+// describe("copyNewlyCreatedFile", () => {
+
+// });
 
 describe("updateFile", () => {
   const content = "Hello world!\n";
@@ -165,7 +186,7 @@ describe("updateFile", () => {
     });
   });
 
-  fit("Calls the callback with an error if the file could not be updated", done => {
+  it("Calls the callback with an error if the file could not be updated", done => {
     const filePath = Path.relative(
       Uri.parse(inkWorkspace.folder.uri).fsPath,
       Uri.parse(textDocument.uri).fsPath
@@ -178,7 +199,7 @@ describe("updateFile", () => {
 
     createFakeProject();
 
-    prepareTempDirectoryForCompilation(workspaceFolder, logger, tempDirectory => {
+    prepareTempDirectoryForCompilation(workspaceFolder, logger).then((tempDirectory) => {
       Fs.chmodSync(temporaryfilePath, 0o000);
 
       updateFile(textDocument, inkWorkspace, logger, error => {
