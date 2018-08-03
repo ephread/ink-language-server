@@ -4,11 +4,10 @@
 
 import { ExecuteCommandParams, IConnection } from "vscode-languageserver/lib/main";
 
-import { chooseOption, compileProject, killInklecate } from "../../inklecate";
+import { IInkCompiler, IInkRunner } from "../../types/backend";
 import { Commands } from "../../types/identifiers";
 import { IConnectionLogger, InkWorkspace } from "../../types/types";
 
-import DiagnosticManager from "./DiagnosticManager";
 import StoryRenderer from "./StoryRenderer";
 import WorkspaceManager from "./WorkspaceManager";
 
@@ -18,8 +17,9 @@ import WorkspaceManager from "./WorkspaceManager";
 export default class CommandRunner {
   constructor(
     private connection: IConnection,
-    private diagnosticManager: DiagnosticManager,
     private workspaceManager: WorkspaceManager,
+    private compiler: IInkCompiler,
+    private runner: IInkRunner,
     private logger: IConnectionLogger
   ) {}
 
@@ -84,16 +84,16 @@ export default class CommandRunner {
 
     const index = parseInt(params.arguments[0]);
 
-    chooseOption(index);
+    this.runner.chooseOption(index);
   }
 
   /**
    * Kill the current Inklecate process, if applicable.
    */
-  public killInklecate() {
-    this.logger.console.info("Received kill inklecate command.");
+  public stopCurrentStory() {
+    this.logger.console.info("Received stop story command.");
 
-    killInklecate();
+    this.runner.stopCurrentStory();
   }
 
   /**
@@ -123,12 +123,6 @@ export default class CommandRunner {
     const settings = await this.workspaceManager.fetchDocumentConfigurationSettings(documentUri);
     const storyRenderer = play ? new StoryRenderer(this.connection) : undefined;
 
-    compileProject(
-      settings,
-      workspace,
-      this.logger,
-      storyRenderer,
-      this.diagnosticManager
-    );
+    this.compiler.compileStory(settings, workspace);
   }
 }

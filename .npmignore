@@ -8,6 +8,8 @@ jest.config.js
 __mocks__
 __mock__
 src/tests
+*.test.js
+*.test.d.ts
 
 # Build tools
 .travis.yml

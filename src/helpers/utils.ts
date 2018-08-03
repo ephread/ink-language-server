@@ -42,21 +42,34 @@ export function getDiagnosticSeverityFromInkErrorType(type: InkErrorType): Diagn
   }
 }
 
-export function isInkFile(filePath: string, testIfDirectory: boolean, logger: IConnectionLogger) {
+/**
+ * Returns `true` if the path is an ink file, `false` otherwise.
+ * An ink file is terminating by `.ink` or `.ink2`.
+ *
+ * If `allowDirectories` is true, then directories will be considered like
+ * regular files.
+ *
+ * @param filePath path to the file to test.
+ * @param allowDirectories `true` to allow directories, `false` otherwise.
+ * @param logger logger use to report warnings.
+ */
+export function isInkFile(filePath: string, allowDirectories: boolean, logger: IConnectionLogger) {
   try {
-    if (testIfDirectory) {
-      if (Fs.lstatSync(filePath).isDirectory()) { return false; }
+    if (!allowDirectories) {
+      if (Fs.lstatSync(filePath).isDirectory()) {
+        return false;
+      }
     }
 
     const extension = filePath.split(".").pop() || "";
-    if (filePath === extension) { return false; }
+    if (filePath === extension) {
+      return false;
+    }
 
-    const isInk = (INK_EXTENSIONS.indexOf(extension) > -1);
+    const isInk = INK_EXTENSIONS.indexOf(extension) > -1;
     return isInk;
   } catch (error) {
-    logger.console.warn(
-      `File '${filePath}' doesn't exist and will be ignored. - ${error.message}`
-    );
+    logger.console.warn(`File '${filePath}' doesn't exist and will be ignored. - ${error.message}`);
 
     return false;
   }

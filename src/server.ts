@@ -7,26 +7,23 @@ import {
   DidChangeConfigurationNotification,
   IConnection,
   InitializeParams,
-  ProposedFeatures,
-} from "vscode-languageserver";
+  ProposedFeatures
+} from "vscode-languageserver/lib/main";
 
-import {
-  InkConnectionLogger,
-} from "./types/types";
+import { InkConnectionLogger } from "./types/types";
 
-import {
-  flagDefaultSettingsAsDirty,
-} from "./helpers/configuration";
+import { flagDefaultSettingsAsDirty } from "./helpers/configuration";
 
-import {
-  Commands,
-} from "./types/identifiers";
+import { Commands } from "./types/identifiers";
 
 import { checkPlatformAndDownloadBinaryDependency } from "./helpers/install";
 
+import InklecateBackend from "./backends/InklecateBackend";
 import CommandRunner from "./helpers/Class/CommandRunner";
+import CompilationDirectoryManager from "./helpers/Class/CompilationDirectoryManager";
 import DiagnosticManager from "./helpers/Class/DiagnosticManager";
 import DocumentManager from "./helpers/Class/DocumentManager";
+import StoryRenderer from "./helpers/Class/StoryRenderer";
 import WorkspaceManager from "./helpers/Class/WorkspaceManager";
 
 /* Properties */
@@ -36,9 +33,26 @@ const logger = createConnectionLogger(connection);
 
 const documentManager = new DocumentManager();
 const diagnosticManager = new DiagnosticManager(connection, documentManager, logger);
+const compilationDirectoryManager = new CompilationDirectoryManager(logger);
+const storyRenderer = new StoryRenderer(connection);
 
-const workspaceManager = new WorkspaceManager(connection, documentManager, diagnosticManager, logger);
-const commandRunner = new CommandRunner(connection, diagnosticManager, workspaceManager, logger);
+const inklecateBackend = new InklecateBackend(storyRenderer, diagnosticManager, logger);
+
+const workspaceManager = new WorkspaceManager(
+  connection,
+  documentManager,
+  compilationDirectoryManager,
+  inklecateBackend,
+  logger
+);
+
+const commandRunner = new CommandRunner(
+  connection,
+  workspaceManager,
+  inklecateBackend,
+  inklecateBackend,
+  logger
+);
 
 /* Helpers */
 /******************************************************************************/
@@ -49,7 +63,7 @@ const commandRunner = new CommandRunner(connection, diagnosticManager, workspace
  */
 function createConnectionLogger(clientConnection: IConnection) {
   const argv = process.argv.slice(2);
-  const verbose = argv.indexOf('--verbose') > -1;
+  const verbose = argv.indexOf("--verbose") > -1;
 
   return new InkConnectionLogger(clientConnection, verbose);
 }
@@ -65,11 +79,7 @@ connection.onInitialize((params: InitializeParams) => {
     capabilities: {
       textDocumentSync: documentManager.documents.syncKind,
       executeCommandProvider: {
-        commands: [
-          Commands.compileStory,
-          Commands.playStory,
-          Commands.selectOption
-        ]
+        commands: [Commands.compileStory, Commands.playStory, Commands.selectOption]
       }
     }
   };
@@ -86,7 +96,7 @@ connection.onInitialized(() => {
     });
   }
 
-  checkPlatformAndDownloadBinaryDependency(logger, (success) => {
+  checkPlatformAndDownloadBinaryDependency(logger, success => {
     flagDefaultSettingsAsDirty();
     workspaceManager.initializeInkWorkspaces();
   });
@@ -110,7 +120,8 @@ connection.onExecuteCommand(
       case Commands.selectOption:
         commandRunner.selectOption(params);
         break;
-      default: break;
+      default:
+        break;
     }
   }
 );

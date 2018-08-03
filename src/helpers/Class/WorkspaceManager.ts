@@ -9,20 +9,14 @@ import {
   DidChangeWatchedFilesParams,
   ExecuteCommandParams,
   FileChangeType,
-  TextDocument,
-} from "vscode-languageserver";
+  TextDocument
+} from "vscode-languageserver/lib/main";
 
-import URI from "vscode-uri";
+import URI from "vscode-uri/lib/umd";
 
-import { IConnection } from "vscode-languageserver";
+import { IConnection } from "vscode-languageserver/lib/main";
 
-import {
-  compileProject,
-  copyNewlyCreatedFile,
-  prepareTempDirectoryForCompilation,
-  updateFile
-} from "../../inklecate";
-
+import { IInkCompiler } from "../../types/backend";
 import {
   Capabilities,
   DocumentPathAndWorkspace,
@@ -34,7 +28,7 @@ import {
 import { getDefaultSettings } from "../configuration";
 import { isFilePathChildOfDirPath } from "../utils";
 
-import DiagnosticManager from "./DiagnosticManager";
+import CompilationDirectoryManager from "./CompilationDirectoryManager";
 import DocumentManager from "./DocumentManager";
 
 /**
@@ -61,9 +55,10 @@ export default class WorkspaceManager {
   constructor(
     private connection: IConnection,
     private documentManager: DocumentManager,
-    private diagnosticManager: DiagnosticManager,
+    private compilationDirectoryManager: CompilationDirectoryManager,
+    private compiler: IInkCompiler,
     private logger: IConnectionLogger
-  ) { }
+  ) {}
 
   public initializeCapabilities(clientCapabilities: ClientCapabilities) {
     if (clientCapabilities.workspace) {
@@ -127,7 +122,8 @@ export default class WorkspaceManager {
           const promises: Array<Promise<string | void>> = [];
           for (const workspaceFolder of workspaceFolders) {
             promises.push(
-              prepareTempDirectoryForCompilation(workspaceFolder, this.logger)
+              this.compilationDirectoryManager
+                .prepareTempDirectoryForCompilation(workspaceFolder)
                 .then(tempDir => {
                   if (tempDir) {
                     this.logger.console.info(
@@ -203,20 +199,15 @@ export default class WorkspaceManager {
 
     const settings = await this.fetchDocumentConfigurationSettings(document);
 
-    updateFile(document, workspace, this.logger, error => {
-      if (error) {
+    this.compilationDirectoryManager.updateFile(document, workspace).then(
+      () => {
+        this.compiler.compileStory(settings, workspace!);
+      },
+      error => {
         this.logger.console.error(`Could not update '${document.uri}', ${error.message}`);
         this.logger.reportServerError();
-      } else {
-        compileProject(
-          settings,
-          workspace!,
-          this.logger,
-          undefined,
-          this.diagnosticManager
-        );
       }
-    });
+    );
   }
 
   /**
@@ -231,7 +222,10 @@ export default class WorkspaceManager {
         if (this.canCompile) {
           const workspace = this.getInkWorkspaceOfFilePath(change.uri);
           if (workspace) {
-            await copyNewlyCreatedFile(change.uri, workspace, this.logger);
+            await this.compilationDirectoryManager.copyNewlyCreatedFile(
+              change.uri,
+              workspace,
+            );
           } else {
             this.logger.console.error(
               `The temporary workspace is undefined, cannot copy newly created files.`
@@ -288,7 +282,7 @@ export default class WorkspaceManager {
       if (typeof params.arguments[0] !== "string") {
         this.logger.console.warn(
           "The file URI provided is not a string, the behavior might be undefined. " +
-          `The argument contained: ${JSON.stringify(params.arguments[0])}`
+            `The argument contained: ${JSON.stringify(params.arguments[0])}`
         );
       }
 

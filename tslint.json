@@ -8,7 +8,8 @@
         "interface-name": false,
         "radix": false,
         "object-literal-sort-keys": false,
-        "semicolon": true
+        "semicolon": true,
+        "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore"]
     },
     "rulesDirectory": []
 }
