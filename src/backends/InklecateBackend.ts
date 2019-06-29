@@ -81,7 +81,13 @@ export default class InklecateBackend implements IInkCompiler, IInkRunner {
 
   public chooseOption(index: number) {
     if (this.inklecateProcess) {
-      this.inklecateProcess.stdin.write(`${index}\n`);
+      if (this.inklecateProcess.stdin) {
+        this.inklecateProcess.stdin.write(`${index}\n`);
+      } else {
+        const errorMessage = "Inklecate subprocess has no stdin set, something's wrong.";
+        this.logger.console.error(`${errorMessage}`);
+        this.logger.showErrorMessage(errorMessage, false);
+      }
     }
   }
 
@@ -159,40 +165,59 @@ export default class InklecateBackend implements IInkCompiler, IInkRunner {
 
     let errors: InkError[] = [];
 
-    this.inklecateProcess.stdin.setDefaultEncoding("utf8");
-    this.inklecateProcess.stderr.setEncoding("utf8");
-    this.inklecateProcess.stderr.on("data", text => {
-      if (typeof text === "string") {
-        // Strip Byte order mark
-        text = text.replace(/^\uFEFF/, "");
+    if (this.inklecateProcess.stdin) {
+      this.inklecateProcess.stdin.setDefaultEncoding("utf8");
+    } else {
+      const errorMessage = "Inklecate subprocess has no stdin set, something's wrong.";
+      this.logger.console.error(`${errorMessage}`);
+      this.logger.showErrorMessage(errorMessage, false);
+    }
 
-        if (text.length > 0) {
-          const inklecateMessage = "Inklecate returned an error, see the log for more details.";
-          this.logger.console.error(`${inklecateMessage}: ${text}`);
-          this.logger.showErrorMessage(inklecateMessage, false);
+    if (this.inklecateProcess.stderr) {
+      this.inklecateProcess.stderr.setEncoding("utf8");
+      this.inklecateProcess.stderr.on("data", text => {
+        if (typeof text === "string") {
+          // Strip Byte order mark
+          text = text.replace(/^\uFEFF/, "");
+
+          if (text.length > 0) {
+            const inklecateMessage = "Inklecate returned an error, see the log for more details.";
+            this.logger.console.error(`${inklecateMessage}: ${text}`);
+            this.logger.showErrorMessage(inklecateMessage, false);
+          }
         }
-      }
-    });
+      });
+    } else {
+      const errorMessage = "Inklecate subprocess has no stderr set, something's wrong.";
+      this.logger.console.error(`${errorMessage}`);
+      this.logger.showErrorMessage(errorMessage, false);
+    }
 
-    this.inklecateProcess.stdout.setEncoding("utf8");
-    this.inklecateProcess.stdout.on("data", text => {
-      if (typeof text === "string") {
-        const newErrors = this.parseErrorsOrRenderStory(
-          text,
-          Path.dirname(settings.mainStoryPath),
-          inkWorkspace,
-          isPlaying
-        );
-        errors = errors.concat(newErrors);
-      }
-    });
+    if (this.inklecateProcess.stdout) {
+      this.inklecateProcess.stdout.setEncoding("utf8");
+      this.inklecateProcess.stdout.on("data", text => {
+        if (typeof text === "string") {
+          const newErrors = this.parseErrorsOrRenderStory(
+            text,
+            Path.dirname(settings.mainStoryPath),
+            inkWorkspace,
+            isPlaying
+          );
+          errors = errors.concat(newErrors);
+        }
+      });
 
-    this.inklecateProcess.stdout.on("close", () => {
-      if (isPlaying) {
-        this.storyRenderer.showEndOfStory();
-      }
-      this.diagnosticManager.notifyClientAndPushDiagnostics(inkWorkspace, outputStoryPath, errors);
-    });
+      this.inklecateProcess.stdout.on("close", () => {
+        if (isPlaying) {
+          this.storyRenderer.showEndOfStory();
+        }
+        this.diagnosticManager.notifyClientAndPushDiagnostics(inkWorkspace, outputStoryPath, errors);
+      });
+    } else {
+      const errorMessage = "Inklecate subprocess has no stdout set, something's wrong.";
+      this.logger.console.error(`${errorMessage}`);
+      this.logger.showErrorMessage(errorMessage, false);
+    }
 
     this.inklecateProcess.on("exit", () => {
       this.inklecateProcess = undefined;
