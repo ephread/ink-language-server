@@ -26,7 +26,7 @@ import {
   PartialInkConfigurationSettings
 } from "../../types/types";
 
-import { getDefaultSettings } from "../configuration";
+import { getDefaultSettings, mergeSettings } from "../configuration";
 import { isFilePathChildOfDirPath } from "../utils";
 
 import CompilationDirectoryManager from "./CompilationDirectoryManager";
@@ -53,6 +53,8 @@ export default class WorkspaceManager {
 
   public rootUri: string|null = null;
 
+  public initializationOptions: PartialInkConfigurationSettings = {};
+
   public canCompile = false;
 
   constructor(
@@ -63,7 +65,7 @@ export default class WorkspaceManager {
     private logger: IConnectionLogger
   ) {}
 
-  public initializeCapabilities(params: InitializeParams) {
+  public initialize(params: InitializeParams) {
     if (params.capabilities.workspace) {
       this.capabilities.configuration = !!params.capabilities.workspace.configuration;
       this.capabilities.workspaceFolder = !!params.capabilities.workspace.workspaceFolders;
@@ -79,6 +81,10 @@ export default class WorkspaceManager {
       // This handles a few corner cases when converting to a URI from
       // a path such as C:\My Documents\foo.txt to file:///c/my%20documents/foo.txt
       this.rootUri = URI.file(params.rootPath).toString();
+    }
+
+    if (params.initializationOptions && params.initializationOptions.ink) {
+      this.initializationOptions = params.initializationOptions.ink;
     }
   }
 
@@ -225,7 +231,11 @@ export default class WorkspaceManager {
       }
     }
 
-    const settings = await this.fetchDocumentConfigurationSettings(document);
+    // Merge from the most specific settings -> least specific
+    let documentSettings = await this.fetchDocumentConfigurationSettings(document);
+    let defaultSettings = getDefaultSettings();
+    let settings = mergeSettings(documentSettings, this.initializationOptions);
+    settings = mergeSettings(settings, defaultSettings);
 
     this.compilationDirectoryManager.updateFile(document, workspace).then(
       () => {
@@ -284,7 +294,7 @@ export default class WorkspaceManager {
     }
 
     if (!this.capabilities.configuration) {
-      return Promise.resolve(Object.assign({}, getDefaultSettings()));
+      return Promise.resolve({});
     }
 
     let result = this.documentManager.documentSettings.get(documentUri);
@@ -305,7 +315,7 @@ export default class WorkspaceManager {
   ): Promise<DocumentPathAndWorkspace> {
     let fileURI: string;
     if (!params.arguments || params.arguments.length < 1) {
-      fileURI = getDefaultSettings().mainStoryPath;
+      fileURI = mergeSettings(this.initializationOptions, getDefaultSettings()).mainStoryPath;
     } else {
       if (typeof params.arguments[0] !== "string") {
         this.logger.console.warn(

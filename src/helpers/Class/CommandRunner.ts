@@ -10,6 +10,7 @@ import { IConnectionLogger, InkWorkspace } from "../../types/types";
 
 import StoryRenderer from "./StoryRenderer";
 import WorkspaceManager from "./WorkspaceManager";
+import { getDefaultSettings, mergeSettings } from "../configuration";
 
 /**
  * Runs command sent by the client.
@@ -120,7 +121,11 @@ export default class CommandRunner {
       return;
     }
 
-    const settings = await this.workspaceManager.fetchDocumentConfigurationSettings(documentUri);
+    let documentSettings = await this.workspaceManager.fetchDocumentConfigurationSettings(documentUri);
+    let defaultSettings = getDefaultSettings();
+    let settings = mergeSettings(documentSettings, this.workspaceManager.initializationOptions);
+    settings = mergeSettings(settings, defaultSettings);
+
     const storyRenderer = play ? new StoryRenderer(this.connection) : undefined;
 
     this.compiler.compileStory(settings, workspace);
