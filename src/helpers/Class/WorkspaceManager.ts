@@ -5,11 +5,12 @@
 import * as Path from "path";
 
 import {
-  ClientCapabilities,
   DidChangeWatchedFilesParams,
   ExecuteCommandParams,
   FileChangeType,
-  TextDocument
+  InitializeParams,
+  TextDocument,
+  WorkspaceFolder
 } from "vscode-languageserver/lib/main";
 
 import URI from "vscode-uri/lib/umd";
@@ -50,6 +51,8 @@ export default class WorkspaceManager {
     diagnostic: false
   };
 
+  public rootUri: string|null = null;
+
   public canCompile = false;
 
   constructor(
@@ -60,14 +63,22 @@ export default class WorkspaceManager {
     private logger: IConnectionLogger
   ) {}
 
-  public initializeCapabilities(clientCapabilities: ClientCapabilities) {
-    if (clientCapabilities.workspace) {
-      this.capabilities.configuration = !!clientCapabilities.workspace.configuration;
-      this.capabilities.workspaceFolder = !!clientCapabilities.workspace.workspaceFolders;
+  public initializeCapabilities(params: InitializeParams) {
+    if (params.capabilities.workspace) {
+      this.capabilities.configuration = !!params.capabilities.workspace.configuration;
+      this.capabilities.workspaceFolder = !!params.capabilities.workspace.workspaceFolders;
 
-      if (clientCapabilities.textDocument) {
-        this.capabilities.diagnostic = !!clientCapabilities.textDocument.publishDiagnostics;
+      if (params.capabilities.textDocument) {
+        this.capabilities.diagnostic = !!params.capabilities.textDocument.publishDiagnostics;
       }
+    }
+
+    if (params.rootUri) {
+      this.rootUri = params.rootUri;
+    } else if (params.rootPath) {
+      // This handles a few corner cases when converting to a URI from
+      // a path such as C:\My Documents\foo.txt to file:///c/my%20documents/foo.txt
+      this.rootUri = URI.file(params.rootPath).toString();
     }
   }
 
@@ -111,61 +122,78 @@ export default class WorkspaceManager {
   }
 
   /**
+   * Based on a list of workspace folders from the client, create temporary directories
+   * that ink will use to compile the project
+   */
+  public async setupWorkspaceCopy(workspaceFolders: Array<WorkspaceFolder>|null) {
+    if (workspaceFolders) {
+      const hrstart = process.hrtime();
+      const promises: Array<Promise<string | void>> = [];
+      for (const workspaceFolder of workspaceFolders) {
+        promises.push(
+          this.compilationDirectoryManager
+            .prepareTempDirectoryForCompilation(workspaceFolder)
+            .then(tempDir => {
+              if (tempDir) {
+                this.logger.console.info(
+                  `Temporary compilation directory successfully created at: ${tempDir}`
+                );
+                let workspace = this.workspaceDirectories.get(workspaceFolder.uri);
+
+                if (!workspace) {
+                  workspace = {
+                    folder: workspaceFolder
+                  };
+
+                  this.workspaceDirectories.set(workspaceFolder.uri, workspace);
+                }
+
+                workspace.temporaryCompilationDirectory = tempDir;
+
+                this.canCompile = true;
+              } else {
+                this.logger.console.error(`'tempDir' should have been set, but was undefined.`);
+                this.logger.reportServerError();
+              }
+            })
+            .catch(() => {
+              this.logger.reportServerError();
+            })
+        );
+      }
+
+      Promise.all(promises).then(() => {
+        const hrend = process.hrtime(hrstart);
+        const time = (hrend[0] * 1e9 + hrend[1]) / 1e9;
+        this.logger.console.info(
+          `All temporary compilation directories were created in ${time}s.`
+        );
+      });
+    }
+  }
+
+  /**
    * Initialize workspaces by fetching opened `WorkspaceFolder` from the client and
    * creating the temporary directories which will hold copies of the Ink Project.
+   * If the client does not support workspaces, presume that the rootUri is a single workspace.
    */
   public async initializeInkWorkspaces() {
-    return this.connection.workspace.getWorkspaceFolders().then(
-      workspaceFolders => {
-        if (workspaceFolders) {
-          const hrstart = process.hrtime();
-          const promises: Array<Promise<string | void>> = [];
-          for (const workspaceFolder of workspaceFolders) {
-            promises.push(
-              this.compilationDirectoryManager
-                .prepareTempDirectoryForCompilation(workspaceFolder)
-                .then(tempDir => {
-                  if (tempDir) {
-                    this.logger.console.info(
-                      `Temporary compilation directory successfully created at: ${tempDir}`
-                    );
-                    let workspace = this.workspaceDirectories.get(workspaceFolder.uri);
-
-                    if (!workspace) {
-                      workspace = {
-                        folder: workspaceFolder
-                      };
-
-                      this.workspaceDirectories.set(workspaceFolder.uri, workspace);
-                    }
-
-                    workspace.temporaryCompilationDirectory = tempDir;
-
-                    this.canCompile = true;
-                  } else {
-                    this.logger.console.error(`'tempDir' should have been set, but was undefined.`);
-                    this.logger.reportServerError();
-                  }
-                })
-                .catch(() => {
-                  this.logger.reportServerError();
-                })
-            );
-          }
-
-          Promise.all(promises).then(() => {
-            const hrend = process.hrtime(hrstart);
-            const time = (hrend[0] * 1e9 + hrend[1]) / 1e9;
-            this.logger.console.info(
-              `All temporary compilation directories were created in ${time}s.`
-            );
-          });
+    if (this.capabilities.workspaceFolder) {
+      return this.connection.workspace.getWorkspaceFolders().then(
+        workspaceFolders => {
+          return this.setupWorkspaceCopy(workspaceFolders);
+        },
+        () => {
+          return Promise.reject();
         }
-      },
-      () => {
-        return Promise.reject();
-      }
-    );
+      );
+    } else if (this.rootUri) {
+      let folder = {} as WorkspaceFolder;
+      folder.uri = this.rootUri;
+      // for some uri file:///path/to/file, name becomes 'file'
+      folder.name = this.rootUri.split('/').slice(-1)[0];
+      return this.setupWorkspaceCopy([folder]);
+    }
   }
 
   /**

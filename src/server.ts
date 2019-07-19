@@ -73,7 +73,7 @@ function createConnectionLogger(clientConnection: IConnection) {
 connection.onInitialize((params: InitializeParams) => {
   logger.console.info("Language Server connected.");
 
-  workspaceManager.initializeCapabilities(params.capabilities);
+  workspaceManager.initializeCapabilities(params);
 
   return {
     capabilities: {
