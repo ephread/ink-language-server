@@ -77,7 +77,7 @@ export function defaultInklecatePath(platform: Platform): string {
  */
 export function mergeSettings(
   settings: PartialInkConfigurationSettings,
-  defaultSettings: InkConfigurationSettings
+  defaultSettings: PartialInkConfigurationSettings
 ): InkConfigurationSettings {
   let inklecatePath = settings.inklecateExecutablePath;
   let mainStoryPath = settings.mainStoryPath;

@@ -73,7 +73,7 @@ function createConnectionLogger(clientConnection: IConnection) {
 connection.onInitialize((params: InitializeParams) => {
   logger.console.info("Language Server connected.");
 
-  workspaceManager.initializeCapabilities(params.capabilities);
+  workspaceManager.initialize(params);
 
   return {
     capabilities: {
@@ -96,13 +96,17 @@ connection.onInitialized(() => {
     });
   }
 
-  checkPlatformAndDownloadBinaryDependency(logger, success => {
+  checkPlatformAndDownloadBinaryDependency(workspaceManager, logger, success => {
     flagDefaultSettingsAsDirty();
     workspaceManager.initializeInkWorkspaces();
   });
 });
 
-connection.onDidChangeConfiguration(() => {
+connection.onDidChangeConfiguration(change => {
+  // Probably a v2 client, update workspace wide config settings from this message
+  if (!workspaceManager.capabilities.configuration && change.settings && change.settings.ink) {
+    workspaceManager.initializationOptions = change.settings.ink;
+  }
   documentManager.documentSettings.clear();
 });
 

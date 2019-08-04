@@ -9,6 +9,7 @@ import * as Path from "path";
 import * as Request from "request";
 
 import { IConnectionLogger } from "../types/types";
+import WorkspaceManager from "../helpers/Class/WorkspaceManager";
 
 const INK_VERSION = '0.8.1';
 
@@ -121,56 +122,67 @@ function downloadDependency(
 /**
  *
  */
-export function checkPlatformAndDownloadBinaryDependency(logger: IConnectionLogger, callback: (success: boolean) => void) {
-  if (isRunningOnMac()) {
-    // Running on a mac.
-    const bundleName = optionalMacOsBundleName();
-    const urlpart = `https://dl.bintray.com/ephread/ink-language-server/`;
-
-    if (bundleName) {
-      const url = `${urlpart}${bundleName}`;
-      const vendorDir = Path.join(__dirname, "../../vendor/");
-      const filePath = Path.join(vendorDir, bundleName);
-
-      Fs.stat(Path.join(vendorDir, 'inklecate'), (statError, stat) => {
-        if (stat) {
-          logger.console.info(`Running on macOS, inklecate has already been downloaded.`);
-          callback(true);
-        } else {
-          logger.console.info(`Running on macOS, fetching inkeclate from… ${url}`);
-
-          downloadDependency(url, filePath, error => {
-            if (error) {
-              if (progress) {
-                progress.stop();
-              }
-              logger.console.error(`${error}`);
-              logger.console.error(messages.installError);
-              callback(false);
-            } else {
-              Extract(filePath, { dir: vendorDir }, extractError => {
-                if (extractError) {
-                  logger.console.error(extractError.message);
-                  callback(false);
-                } else {
-                  Fs.unlink(filePath, unLinkError => {
-                    if (unLinkError) {
-                      logger.console.error(`${unLinkError}`);
-                    }
-                  });
-                  logger.console.info("Inklecate successfully installed!");
-                  callback(true);
-                }
-              });
-            }
-          });
-        }
-      });
-    }
-  } else if (!isRunningOnWindows()) {
-    logger.console.warn(messages.unsupportedPlatform);
-    callback(true);
+export function checkPlatformAndDownloadBinaryDependency(workspaceManager: WorkspaceManager, logger: IConnectionLogger, callback: (success: boolean) => void) {
+  let configInk = workspaceManager.initializationOptions.inklecateExecutablePath;
+  if (configInk) {
+    Fs.stat(configInk, (_, stat) => {
+      if (stat) {
+        callback(true);
+      } else {
+        callback(false);
+      }
+    });
   } else {
-    callback(true);
+    if (isRunningOnMac()) {
+      // Running on a mac.
+      const bundleName = optionalMacOsBundleName();
+      const urlpart = `https://dl.bintray.com/ephread/ink-language-server/`;
+
+      if (bundleName) {
+        const url = `${urlpart}${bundleName}`;
+        const vendorDir = Path.join(__dirname, "../../vendor/");
+        const filePath = Path.join(vendorDir, bundleName);
+
+        Fs.stat(Path.join(vendorDir, 'inklecate'), (statError, stat) => {
+          if (stat) {
+            logger.console.info(`Running on macOS, inklecate has already been downloaded.`);
+            callback(true);
+          } else {
+            logger.console.info(`Running on macOS, fetching inkeclate from… ${url}`);
+
+            downloadDependency(url, filePath, error => {
+              if (error) {
+                if (progress) {
+                  progress.stop();
+                }
+                logger.console.error(`${error}`);
+                logger.console.error(messages.installError);
+                callback(false);
+              } else {
+                Extract(filePath, { dir: vendorDir }, extractError => {
+                  if (extractError) {
+                    logger.console.error(extractError.message);
+                    callback(false);
+                  } else {
+                    Fs.unlink(filePath, unLinkError => {
+                      if (unLinkError) {
+                        logger.console.error(`${unLinkError}`);
+                      }
+                    });
+                    logger.console.info("Inklecate successfully installed!");
+                    callback(true);
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    } else if (!isRunningOnWindows()) {
+      logger.console.warn(messages.unsupportedPlatform);
+      callback(true);
+    } else {
+      callback(true);
+    }
   }
 }

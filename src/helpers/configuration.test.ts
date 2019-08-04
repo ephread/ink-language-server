@@ -3,7 +3,7 @@
 // See LICENSE in the project root for license information.
 
 import { determinePlatform, mergeSettings } from "../helpers/configuration";
-import { InkConfigurationSettings, PartialInkConfigurationSettings, Platform } from "../types/types";
+import { PartialInkConfigurationSettings, Platform } from "../types/types";
 
 describe("determinePlatform", () => {
   beforeEach(() => {
@@ -27,7 +27,7 @@ describe("determinePlatform", () => {
 });
 
 describe("mergeSettings", () => {
-  const defaultSettings: InkConfigurationSettings = {
+  const defaultSettings: PartialInkConfigurationSettings = {
     mainStoryPath: "main.ink",
     inklecateExecutablePath: "inklecate",
     runThroughMono: false
